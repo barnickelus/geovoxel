@@ -2,7 +2,9 @@ name: Deploy GeoVoxel to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - claude/geovoxel-file-setup-mp9btn
   workflow_dispatch:
 
 permissions:
