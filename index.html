@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GeoVoxel</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0a0a0a; }
+    #app { position: relative; width: 100%; height: 100%; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #hud {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      color: #e0e0e0;
+      font: 12px/1.4 monospace;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="viewport"></canvas>
+    <div id="hud"></div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.164.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import { Renderer } from './src/render/Renderer.js';
+    import { ChunkManager } from './src/engine/ChunkManager.js';
+    import { Streaming } from './src/engine/Streaming.js';
+
+    const canvas = document.getElementById('viewport');
+    const renderer = new Renderer(canvas);
+    const chunkManager = new ChunkManager(renderer);
+    const streaming = new Streaming(chunkManager);
+
+    streaming.start();
+    renderer.start();
+  </script>
+</body>
+</html>
