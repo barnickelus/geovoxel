@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0a1720">
-<title>GeoVoxel v5 — Tesserae</title>
+<title>GeoVoxel v5 — Focal Streaming</title>
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9fc3d4;font-family:system-ui,-apple-system,Segoe UI,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .panel{position:fixed;z-index:20;top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));width:min(455px,calc(100vw - 20px));max-height:calc(100vh - 20px);overflow-y:auto;padding:13px;border-radius:17px;background:#07141df2;color:#eef8fb;box-shadow:0 18px 60px #00101880;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
@@ -37,15 +37,15 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <body>
 <canvas id="view"></canvas>
 <section class="panel">
-  <h1>GEOVOXEL <small>V5 · TESSERAE</small></h1>
-  <p class="sub">Adaptive mosaic of real map tiles: full detail nearby with shaped roofs, facades and traffic; simplified rings at distance. Search anywhere, then scrub the sun across the day.</p>
+  <h1>GEOVOXEL <small>V5</small></h1>
+  <p class="sub">Focal streaming: the world blocks in fast at the horizon, then detail fills inward band by band so the center is always sharpest. Drag to look around, right-drag or two-finger drag to travel.</p>
   <div class="row"><input id="search" placeholder="Search any place — city, street, landmark…" autocomplete="off"><button id="find">Find</button></div>
   <div class="row"><select id="preset"><option value="45.5231,-122.6765">Portland, Oregon</option><option value="40.7411,-73.9897">Manhattan, New York</option><option value="34.0195,-118.4912">Santa Monica, California</option><option value="41.9028,12.4964">Rome, Italy</option><option value="35.6812,139.7671">Tokyo, Japan</option></select><button id="go">Start</button></div>
   <div class="coords row"><div class="field"><label>Latitude</label><input id="lat" value="45.5231" inputmode="decimal"></div><div class="field"><label>Longitude</label><input id="lon" value="-122.6765" inputmode="decimal"></div><button id="locate" class="alt" aria-label="Use my location">◎</button></div>
-  <div class="options row"><div class="field"><label>Streaming</label><select id="radius"><option value="1" selected>3 × 3 adaptive</option><option value="2">5 × 5 adaptive</option></select></div><div class="field"><label>Near detail</label><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></div><div class="field"><label>Base voxel</label><select id="voxel"><option value="0">Exact near</option><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></div></div>
+  <div class="options row"><div class="field"><label>Streaming</label><select id="radius"><option value="1">3 × 3 bands</option><option value="2" selected>5 × 5 bands</option><option value="3">7 × 7 bands</option></select></div><div class="field"><label>Near detail</label><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></div><div class="field"><label>Base voxel</label><select id="voxel"><option value="0">Exact near</option><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></div></div>
   <div class="timerow"><input id="time" type="range" min="0" max="24" step="0.25" value="10.5"><div id="timeread" class="timeread">10:30</div></div>
-  <div class="lodlegend"><span class="near">Near · full</span><span class="mid">Middle · simplified</span><span class="far">Far · coarse</span></div>
-  <div class="row secondary"><button id="mode" class="active">Pan mode</button><button id="reset" class="alt">Reset view</button><button id="retry" class="alt">Retry</button><button id="share" class="alt">Share</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
+  <div class="lodlegend"><span class="near">Center · full</span><span class="mid">Ring · simplified</span><span class="far">Outer · blocked in</span></div>
+  <div class="row secondary"><button id="reset" class="alt">Reset view</button><button id="retry" class="alt">Retry</button><button id="share" class="alt">Share</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
   <div id="status" class="status">Loading 3D engine…</div>
   <div class="stats"><div class="stat"><strong id="loaded">0</strong>chunks</div><div class="stat"><strong id="queued">0</strong>queued</div><div class="stat"><strong id="features">0</strong>features</div><div class="stat"><strong id="source">—</strong>source</div></div>
   <div id="lodread" class="coordread">LOD: 0 near · 0 middle · 0 far</div>
@@ -53,9 +53,9 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
   <div class="coordread"><a href="./" style="color:#8fa8b4">← classic adaptive LOD build</a> · map data © OpenStreetMap contributors</div>
 </section>
 <div class="compass"><div id="needle" class="needle"></div></div>
-<div id="help" class="help">Pan mode: drag to travel · tiles rise in as they stream · scrub the slider for dawn to night</div>
+<div id="help" class="help">Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night</div>
 <div id="toast" class="toast"></div>
-<div id="loading" class="loading"><div><h2>GEOVOXEL V5</h2><p>Loading the tesserae renderer…</p></div></div>
+<div id="loading" class="loading"><div><h2>GEOVOXEL V5</h2><p>Loading the focal renderer…</p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
@@ -66,7 +66,12 @@ if(!window.THREE){loadingEl.innerHTML='<div><h2>Could not load 3D engine</h2><p>
 const MOBILE=/iPad|iPhone|Android/i.test(navigator.userAgent);
 const CHUNK=140,OVERLAP=7,CACHE_AGE=7*86400000,MAX_ACTIVE=MOBILE?2:3;
 const LOD_LABEL=['near','middle','far'],LOD_SNAP=[0,3,8];
-const SERVERS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const SERVERS=[
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+];
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x9fc3d4);
@@ -82,6 +87,10 @@ const controls=new THREE.OrbitControls(camera,renderer.domElement);
 controls.enableDamping=true;controls.dampingFactor=.065;
 controls.maxPolarAngle=Math.PI*.475;controls.minDistance=24;controls.maxDistance=1000;
 controls.screenSpacePanning=false;
+controls.mouseButtons={LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
+controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
+controls.keyPanSpeed=26;
+if(controls.listenToKeyEvents)controls.listenToKeyEvents(window);
 const hemi=new THREE.HemisphereLight(0xecfaff,0x4c5d44,1.78);
 scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffefd0,1.52);
@@ -94,12 +103,7 @@ const world=new THREE.Group();
 scene.add(world);
 
 const shared={
-  groundNear:new THREE.MeshStandardMaterial({color:0x879c79,roughness:1}),
-  groundMid:new THREE.MeshStandardMaterial({color:0x839777,roughness:1}),
-  groundFar:new THREE.MeshStandardMaterial({color:0x7e9074,roughness:1}),
-  chunkLineNear:new THREE.LineBasicMaterial({color:0xbafd67,transparent:true,opacity:.22}),
-  chunkLineMid:new THREE.LineBasicMaterial({color:0x72d8ff,transparent:true,opacity:.15}),
-  chunkLineFar:new THREE.LineBasicMaterial({color:0xe1bd76,transparent:true,opacity:.10}),
+  ground:new THREE.MeshStandardMaterial({color:0x849878,roughness:1}),
   edge:new THREE.LineBasicMaterial({color:0x253139,transparent:true,opacity:.32}),
   sidewalk:new THREE.MeshStandardMaterial({color:0xaaa495,roughness:1}),
   marking:new THREE.MeshBasicMaterial({color:0xe7dfbf}),
@@ -111,11 +115,6 @@ const shared={
   lampGlow:new THREE.MeshBasicMaterial({color:0xffe6a5}),
   cab:new THREE.MeshStandardMaterial({color:0x9db2b8,roughness:.35,metalness:.12}),
   car:[0xb74f47,0x3f6e94,0xd2c7a6,0x353a3d,0x8b5a78,0xc28a3c].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.6,metalness:.12})),
-  loader:[
-    new THREE.MeshBasicMaterial({color:0xbafd67,transparent:true,opacity:.65}),
-    new THREE.MeshBasicMaterial({color:0x72d8ff,transparent:true,opacity:.55}),
-    new THREE.MeshBasicMaterial({color:0xe1bd76,transparent:true,opacity:.42})
-  ],
   road:{},area:{},building:{},roof:{}
 };
 const buildingPalette=[0xd8c59f,0xc9ad83,0xbcc0b8,0xc58e77,0xddd3bd,0xa5aca4,0xc7bba7];
@@ -136,8 +135,8 @@ const windowMat=new THREE.MeshBasicMaterial({map:windowTexture,transparent:true,
 const S={
   origin:{lat:45.5231,lon:-122.6765},
   chunks:new Map(),queue:[],active:0,generation:0,totalFeatures:0,
-  lastStream:0,lastCenterKey:'',panMode:true,toastTimer:null,
-  dbPromise:null,requestCounter:0,risers:[],urlTimer:0
+  lastStream:0,lastCenterKey:'',toastTimer:null,
+  dbPromise:null,requestCounter:0,urlTimer:0
 };
 
 const toast=text=>{
@@ -173,7 +172,7 @@ const disposeObject=root=>{
   if(root.parent)root.parent.remove(root);
 };
 const clearWorld=()=>{
-  S.generation++;S.queue=[];S.active=0;S.risers=[];
+  S.generation++;S.queue=[];S.active=0;
   for(const c of S.chunks.values()){if(c.controller)c.controller.abort();disposeObject(c.group)}
   S.chunks.clear();S.totalFeatures=0;updateStats();
 };
@@ -241,7 +240,7 @@ const boundsOf=pts=>{
   for(const p of pts){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minZ=Math.min(minZ,p.z);maxZ=Math.max(maxZ,p.z)}
   return{minX,maxX,minZ,maxZ,x:(minX+maxX)/2,z:(minZ+maxZ)/2,w:maxX-minX,d:maxZ-minZ};
 };
-const lodForOffset=(dx,dz)=>dx===0&&dz===0?0:Math.abs(dx)+Math.abs(dz)===1?1:2;
+const lodForOffset=(dx,dz)=>{const d=Math.hypot(dx,dz);return d<.5?0:d<1.9?1:2};
 const geometries=el=>{
   if(el.type==='way'&&el.geometry)return[{geometry:el.geometry,id:el.id,tags:el.tags||{}}];
   if(el.type==='relation'&&el.members)return el.members
@@ -391,7 +390,7 @@ const addBuilding=(group,pts,tags,id,lod)=>{
     const mesh=new THREE.Mesh(geo,buildingMat(color));
     mesh.receiveShadow=true;mesh.castShadow=lod===0;group.add(mesh);
     if(lod===0){
-      if(Number($('#detail').value)>0){
+      if(Number($('#detail').value)===2){
         const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),shared.edge);
         group.add(edges);
         addRoofUnit(group,pts,b,base+height,id);
@@ -430,7 +429,7 @@ const renderRoad=(group,pts,tags,bounds,lod,carList)=>{
         addSegmentBox(group,p1,p2,.18,shared.marking,y+.07,.035);
       }
     }
-    if(style.cars&&lod===0&&Number($('#detail').value)>0&&seg.len>18){
+    if(style.cars&&lod===0&&Number($('#detail').value)===2&&seg.len>18){
       const r=rng((tags.name||'road')+i+Math.round(mx));
       if(r()<style.cars*.28)carList.push({
         x:mx+seg.dx*(r()-.5)*seg.len*.55,z:mz+seg.dz*(r()-.5)*seg.len*.55,
@@ -541,21 +540,10 @@ const renderChunk=(c,data,lod)=>{
   }
   addTreeInstances(content,trees,lod);addLampInstances(content,lamps,lod);addCars(content,cars,lod);
   if(c.content){S.totalFeatures-=c.featureCount||0;disposeObject(c.content)}
-  content.position.y=-9;
-  S.risers.push({group:content,start:performance.now()});
   c.content=content;c.group.add(content);c.lod=lod;c.featureCount=count;S.totalFeatures+=count;
-  if(c.pin){c.group.remove(c.pin);c.pin.geometry.dispose();c.pin=null}
   c.state='ready';c.errorLod=null;
   updateStats();
   if(c.desiredLod<c.lod)enqueue(c,c.desiredLod,true);
-};
-const animateRisers=now=>{
-  for(let i=S.risers.length-1;i>=0;i--){
-    const r=S.risers[i],t=Math.min(1,(now-r.start)/620);
-    const ease=1-Math.pow(1-t,3);
-    r.group.position.y=-9*(1-ease);
-    if(t>=1){r.group.position.y=0;S.risers.splice(i,1)}
-  }
 };
 
 const openDB=()=>{
@@ -644,10 +632,11 @@ const fetchEndpoint=async(url,query,timeout,signal,delay=0)=>{
 };
 const requestMap=async(query,lod,controller)=>{
   const timeout=lod===0?13000:lod===1?10500:8000;
-  const order=(S.requestCounter++%2)?SERVERS.slice().reverse():SERVERS.slice();
+  const first=S.requestCounter++%SERVERS.length;
   const attempts=[
-    fetchEndpoint(order[0],query,timeout,controller.signal,0),
-    fetchEndpoint(order[1],query,timeout,controller.signal,650)
+    fetchEndpoint(SERVERS[first],query,timeout,controller.signal,0),
+    fetchEndpoint(SERVERS[(first+1)%SERVERS.length],query,timeout,controller.signal,650),
+    fetchEndpoint(SERVERS[(first+2)%SERVERS.length],query,timeout,controller.signal,1700)
   ];
   try{return await Promise.any(attempts)}
   catch(error){throw(error&&error.errors&&error.errors[0])||error}
@@ -662,21 +651,10 @@ const fetchChunk=async(c,lod,generation)=>{
   cachePut(key,data);return{data,cached:false};
 };
 
-const setChunkVisualLod=(c,lod)=>{
-  c.desiredLod=lod;
-  const mat=lod===0?shared.groundNear:lod===1?shared.groundMid:shared.groundFar;
-  const line=lod===0?shared.chunkLineNear:lod===1?shared.chunkLineMid:shared.chunkLineFar;
-  if(c.ground)c.ground.material=mat;if(c.line)c.line.material=line;if(c.pin)c.pin.material=shared.loader[lod];
-};
+const setChunkVisualLod=(c,lod)=>{c.desiredLod=lod};
 const addChunkBase=c=>{
-  const lod=c.desiredLod,mat=lod===0?shared.groundNear:lod===1?shared.groundMid:shared.groundFar;
-  const lineMat=lod===0?shared.chunkLineNear:lod===1?shared.chunkLineMid:shared.chunkLineFar;
-  const ground=new THREE.Mesh(new THREE.BoxGeometry(CHUNK-.25,1,CHUNK-.25),mat);
-  ground.position.set(c.cx*CHUNK,-.56,c.cz*CHUNK);ground.receiveShadow=lod<2;c.group.add(ground);c.ground=ground;
-  const line=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(CHUNK,.02,CHUNK)),lineMat);
-  line.position.set(c.cx*CHUNK,.015,c.cz*CHUNK);c.group.add(line);c.line=line;
-  const pin=new THREE.Mesh(new THREE.CylinderGeometry(1.7,1.7,.18,12),shared.loader[lod]);
-  pin.position.set(c.cx*CHUNK,.11,c.cz*CHUNK);c.group.add(pin);c.pin=pin;
+  const ground=new THREE.Mesh(new THREE.BoxGeometry(CHUNK+.02,1,CHUNK+.02),shared.ground);
+  ground.position.set(c.cx*CHUNK,-.56,c.cz*CHUNK);ground.receiveShadow=c.desiredLod<2;c.group.add(ground);c.ground=ground;
 };
 const queuePriority=(c,lod,upgrade)=>{
   const x=controls.target.x/CHUNK,z=controls.target.z/CHUNK,d=Math.hypot(c.cx-x,c.cz-z);
@@ -698,19 +676,18 @@ const pump=()=>{
     const item=S.queue.shift(),c=item.c,lod=item.lod;c.queuedLods.delete(lod);
     if(!S.chunks.has(c.key)||(c.lod!=null&&c.lod<=lod))continue;
     if(c.loadingLod!=null){c.deferredLod=c.deferredLod==null?lod:Math.min(c.deferredLod,lod);continue}
-    S.active++;c.loadingLod=lod;c.state='loading';if(c.pin)c.pin.material=shared.loader[lod];
+    S.active++;c.loadingLod=lod;c.state='loading';
     const generation=S.generation,isUpgrade=c.lod!=null;
     statusEl.textContent=isUpgrade?`Refining ${c.key} to ${LOD_LABEL[lod]} detail…`:`Loading ${LOD_LABEL[lod]} map chunk ${c.key}…`;
     fetchChunk(c,lod,generation).then(result=>{
       if(generation!==S.generation||!S.chunks.has(c.key))return;
       renderChunk(c,result.data,lod);$('#source').textContent=result.cached?'cache':'OSM';
-      statusEl.textContent=S.queue.length?'The map is usable now; background chunks are still refining.':'Tesserae streaming ready. Drag to travel; nearby tiles refine automatically.';
+      statusEl.textContent=S.queue.length?'The map is usable now; detail is filling in toward the center.':'Focal streaming ready. Drag to look around; travel with right-drag or two fingers.';
     }).catch(error=>{
       if(error&&(error.name==='AbortError'||error.message==='stale generation'))return;
       console.warn('Chunk load failed',c.key,lod,error);
       if(generation===S.generation&&S.chunks.has(c.key)){
         c.errorLod=lod;c.state=c.lod==null?'error':'ready';
-        if(c.pin)c.pin.material.color.set(0xe56b5d);
         statusEl.textContent='One map tile timed out; the loader continued. Tap Retry to request failed tiles again.';
       }
     }).finally(()=>{
@@ -730,7 +707,7 @@ const makeChunk=(cx,cz,desiredLod)=>{
     if(c.lod==null)enqueue(c,2,false);else if(desiredLod<c.lod)enqueue(c,desiredLod,true);
     return c;
   }
-  c={key,cx,cz,desiredLod,lod:null,state:'new',group:new THREE.Group(),content:null,pin:null,ground:null,line:null,
+  c={key,cx,cz,desiredLod,lod:null,state:'new',group:new THREE.Group(),content:null,ground:null,
     queuedLods:new Set(),loadingLod:null,deferredLod:null,controller:null,featureCount:0,errorLod:null};
   c.group.name=`chunk-${key}`;world.add(c.group);S.chunks.set(key,c);addChunkBase(c);enqueue(c,2,false);return c;
 };
@@ -802,15 +779,6 @@ const stream=time=>{
     updateURL();updateStats();
   }
 };
-const setMode=pan=>{
-  S.panMode=pan;controls.enableRotate=!pan;
-  controls.mouseButtons.LEFT=pan?THREE.MOUSE.PAN:THREE.MOUSE.ROTATE;
-  controls.touches.ONE=pan?THREE.TOUCH.PAN:THREE.TOUCH.ROTATE;
-  controls.touches.TWO=THREE.TOUCH.DOLLY_PAN;
-  $('#mode').textContent=pan?'Pan mode':'Orbit mode';$('#mode').classList.toggle('active',pan);
-  $('#help').textContent=pan?'Pan mode: drag to travel · tiles rise in as they stream · scrub the slider for dawn to night':'Orbit mode: drag to rotate · two-finger drag to travel';
-  toast(pan?'Drag to travel through the tile mosaic':'Drag to orbit; use two fingers to travel');
-};
 const resetView=()=>{
   const x=controls.target.x,z=controls.target.z;
   camera.position.set(x+190,165,z+220);controls.target.set(x,8,z);controls.update();
@@ -828,15 +796,11 @@ const retryErrors=()=>{
   toast(count?`Retrying ${count} map tile${count===1?'':'s'}`:'No failed tiles to retry');
 };
 const rebuildVisible=()=>{
-  S.generation++;S.queue=[];S.active=0;S.risers=[];
+  S.generation++;S.queue=[];S.active=0;
   for(const c of S.chunks.values()){
     if(c.controller)c.controller.abort();
     if(c.content){S.totalFeatures-=c.featureCount||0;disposeObject(c.content);c.content=null;c.featureCount=0}
     c.lod=null;c.state='new';c.errorLod=null;c.loadingLod=null;c.deferredLod=null;c.queuedLods.clear();
-    if(!c.pin){
-      c.pin=new THREE.Mesh(new THREE.CylinderGeometry(1.7,1.7,.18,12),shared.loader[c.desiredLod]);
-      c.pin.position.set(c.cx*CHUNK,.11,c.cz*CHUNK);c.group.add(c.pin);
-    }
     enqueue(c,2,false);
   }
   updateStats();toast('Rebuilding visible tiles with the new settings');
@@ -845,18 +809,33 @@ const updateCompass=()=>{
   const direction=new THREE.Vector3();camera.getWorldDirection(direction);
   $('#needle').style.transform=`rotate(${Math.atan2(direction.x,direction.z)}rad)`;
 };
+const geocodeNominatim=async q=>{
+  const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`,{headers:{Accept:'application/json'}});
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const results=await r.json();
+  if(!results.length)return null;
+  return{lat:parseFloat(results[0].lat),lon:parseFloat(results[0].lon),name:results[0].display_name};
+};
+const geocodePhoton=async q=>{
+  const r=await fetch(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(q)}`,{headers:{Accept:'application/json'}});
+  if(!r.ok)throw new Error(`HTTP ${r.status}`);
+  const data=await r.json();
+  const f=data.features&&data.features[0];
+  if(!f)return null;
+  const p=f.properties||{};
+  return{lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],name:[p.name,p.city,p.country].filter(Boolean).join(', ')};
+};
 const searchPlace=async()=>{
   const q=$('#search').value.trim();
   if(!q){toast('Type a place name to search');return}
   $('#find').disabled=true;statusEl.textContent=`Searching for “${q}”…`;
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`,{headers:{Accept:'application/json'}});
-    if(!r.ok)throw new Error(`HTTP ${r.status}`);
-    const results=await r.json();
-    if(!results.length){statusEl.textContent=`No place found for “${q}”. Try adding a city or country.`;return}
-    const hit=results[0];
-    $('#lat').value=parseFloat(hit.lat).toFixed(6);$('#lon').value=parseFloat(hit.lon).toFixed(6);
-    toast(hit.display_name.split(',').slice(0,3).join(','));
+    let hit=null;
+    try{hit=await geocodeNominatim(q)}catch{hit=await geocodePhoton(q)}
+    if(!hit)hit=await geocodePhoton(q).catch(()=>null);
+    if(!hit){statusEl.textContent=`No place found for “${q}”. Try adding a city or country.`;return}
+    $('#lat').value=hit.lat.toFixed(6);$('#lon').value=hit.lon.toFixed(6);
+    toast(hit.name.split(',').slice(0,3).join(','));
     startLocation();
   }catch(e){
     statusEl.textContent='Place search is unavailable right now; enter coordinates instead.';
@@ -873,7 +852,6 @@ $('#locate').onclick=()=>{
     $('#lat').value=p.coords.latitude.toFixed(6);$('#lon').value=p.coords.longitude.toFixed(6);startLocation();
   },()=>statusEl.textContent='Location permission was not granted.',{enableHighAccuracy:true,timeout:12000});
 };
-$('#mode').onclick=()=>setMode(!S.panMode);
 $('#reset').onclick=resetView;
 $('#retry').onclick=retryErrors;
 $('#share').onclick=async()=>{
@@ -889,7 +867,7 @@ addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);
 });
 renderer.setAnimationLoop(time=>{
-  controls.update();stream(time);animateRisers(performance.now());updateCompass();renderer.render(scene,camera);
+  controls.update();stream(time);updateCompass();renderer.render(scene,camera);
 });
 
 const params=new URLSearchParams(location.search);
@@ -902,7 +880,7 @@ if(params.has('t')){
   if(Number.isFinite(t)&&t>=0&&t<=24)$('#time').value=t;
 }
 applyTime(parseFloat($('#time').value));
-setMode(true);resetView();loadingEl.hidden=true;startLocation();
+resetView();loadingEl.hidden=true;startLocation();
 })();
 </script>
 </body>
