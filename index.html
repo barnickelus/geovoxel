@@ -4,28 +4,33 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0a1720">
-<title>GeoVoxel — Streaming Real World</title>
-<link rel="stylesheet" href="style.css?v=3">
+<title>GeoVoxel — Adaptive Real-World Streaming</title>
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <canvas id="view"></canvas>
 <section class="panel">
-  <h1>GEOVOXEL STREAM</h1>
-  <p class="sub">Pan through a continuously generated real-world voxel neighborhood.</p>
+  <h1>GEOVOXEL LOD</h1>
+  <p class="sub">Real map geometry streams in concentric detail rings: full nearby, simplified in the middle, coarse at distance.</p>
   <div class="row"><select id="preset"><option value="45.5231,-122.6765">Portland, Oregon</option><option value="40.7411,-73.9897">Manhattan, New York</option><option value="34.0195,-118.4912">Santa Monica, California</option><option value="41.9028,12.4964">Rome, Italy</option><option value="35.6812,139.7671">Tokyo, Japan</option></select><button id="go">Start</button></div>
   <div class="coords row"><div class="field"><label>Latitude</label><input id="lat" value="45.5231" inputmode="decimal"></div><div class="field"><label>Longitude</label><input id="lon" value="-122.6765" inputmode="decimal"></div><button id="locate" class="alt" aria-label="Use my location">◎</button></div>
-  <div class="options row"><div class="field"><label>Streaming</label><select id="radius"><option value="1" selected>3 × 3 chunks</option><option value="2">5 × 5 chunks</option></select></div><div class="field"><label>Detail</label><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></div><div class="field"><label>Voxel size</label><select id="voxel"><option value="0">Exact</option><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></div></div>
+  <div class="options row"><div class="field"><label>Streaming</label><select id="radius"><option value="1" selected>3 × 3 adaptive</option><option value="2">5 × 5 adaptive</option></select></div><div class="field"><label>Near detail</label><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></div><div class="field"><label>Base voxel</label><select id="voxel"><option value="0">Exact near</option><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></div></div>
+  <div class="lodlegend"><span class="near">Near · full</span><span class="mid">Middle · simplified</span><span class="far">Far · coarse</span></div>
   <div class="row secondary"><button id="mode" class="active">Pan mode</button><button id="reset" class="alt">Reset view</button><button id="retry" class="alt">Retry</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
   <div id="status" class="status">Loading 3D engine…</div>
   <div class="stats"><div class="stat"><strong id="loaded">0</strong>chunks</div><div class="stat"><strong id="queued">0</strong>queued</div><div class="stat"><strong id="features">0</strong>features</div><div class="stat"><strong id="source">—</strong>source</div></div>
+  <div id="lodread" class="coordread">LOD: 0 near · 0 middle · 0 far</div>
   <div id="coords" class="coordread"></div>
 </section>
 <div class="compass"><div id="needle" class="needle"></div></div>
-<div id="help" class="help">Pan mode: drag to travel · pinch to zoom · chunks generate around the center</div>
+<div id="help" class="help">Pan mode: drag to travel · center refines first · outer rings stay coarse</div>
 <div id="toast" class="toast"></div>
-<div id="loading" class="loading"><div><h2>GEOVOXEL</h2><p>Loading the streaming renderer…</p></div></div>
+<div id="loading" class="loading"><div><h2>GEOVOXEL</h2><p>Loading the adaptive renderer…</p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="app.js?v=3"></script>
+<script src="core.js?v=4"></script>
+<script src="render.js?v=4"></script>
+<script src="data.js?v=4"></script>
+<script src="stream.js?v=4"></script>
 </body>
 </html>
