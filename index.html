@@ -1,50 +1,45 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GeoVoxel</title>
-  <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #0a0a0a; }
-    #app { position: relative; width: 100%; height: 100%; }
-    canvas { display: block; width: 100%; height: 100%; }
-    #hud {
-      position: absolute;
-      top: 12px;
-      left: 12px;
-      color: #e0e0e0;
-      font: 12px/1.4 monospace;
-      pointer-events: none;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#08131c">
+<title>GeoVoxel</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9fc3d4;font-family:system-ui,-apple-system,Segoe UI,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}.panel{position:fixed;z-index:10;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));width:min(390px,calc(100vw - 24px));padding:14px;border-radius:17px;background:#07141de8;color:#eef8fb;box-shadow:0 18px 60px #00101880;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}h1{font-size:18px;margin:0;letter-spacing:.12em}.sub{margin:6px 0 11px;color:#b8cad2;font-size:12px}.row{display:flex;gap:8px;margin-top:8px}.row>*{min-width:0}input,select,button{height:40px;border:0;border-radius:10px;font:inherit}input,select{width:100%;padding:0 10px;color:#142029;background:#eff6f8}select{flex:1}button{padding:0 14px;cursor:pointer;font-weight:800;color:#14200d;background:#bafd67}button.alt{color:#142029;background:#dae9ee}.coords{display:grid;grid-template-columns:1fr 1fr 42px;gap:8px}.field{display:flex;flex-direction:column;gap:4px}.field label{font-size:9px;text-transform:uppercase;letter-spacing:.09em;color:#8fa8b4}.status{min-height:34px;margin-top:10px;font-size:12px;line-height:1.4;color:#d1e1e7}.stats{display:flex;gap:6px;margin-top:8px}.stat{flex:1;padding:7px;border-radius:8px;text-align:center;background:#ffffff0b;font-size:10px;color:#91aab5}.stat strong{display:block;color:#fff;font-size:14px}.help{position:fixed;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:5;padding:9px 11px;border-radius:11px;background:#07141dc9;color:#d6e4e9;font-size:10px}.loading{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:#08131c;color:#eef8fb;text-align:center;padding:24px}.loading[hidden]{display:none}@media(max-width:600px){.panel{padding:12px}.stats,.help{display:none}}
+</style>
 </head>
 <body>
-  <div id="app">
-    <canvas id="viewport"></canvas>
-    <div id="hud"></div>
-  </div>
-
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.164.0/build/three.module.js"
-      }
-    }
-  </script>
-
-  <script type="module">
-    import { Renderer } from './src/render/Renderer.js';
-    import { ChunkManager } from './src/engine/ChunkManager.js';
-    import { Streaming } from './src/engine/Streaming.js';
-
-    const canvas = document.getElementById('viewport');
-    const renderer = new Renderer(canvas);
-    const chunkManager = new ChunkManager(renderer);
-    const streaming = new Streaming(chunkManager);
-
-    streaming.start();
-    renderer.start();
-  </script>
+<canvas id="view"></canvas>
+<section class="panel">
+<h1>GEOVOXEL</h1><p class="sub">Real OpenStreetMap buildings reconstructed as a voxel-style 3D neighborhood.</p>
+<div class="row"><select id="preset"><option value="45.5231,-122.6765">Portland, Oregon</option><option value="40.7411,-73.9897">Manhattan, New York</option><option value="34.0195,-118.4912">Santa Monica, California</option><option value="41.9028,12.4964">Rome, Italy</option><option value="35.6812,139.7671">Tokyo, Japan</option></select><button id="build">Build</button></div>
+<div class="coords row"><div class="field"><label>Latitude</label><input id="lat" value="45.5231" inputmode="decimal"></div><div class="field"><label>Longitude</label><input id="lon" value="-122.6765" inputmode="decimal"></div><button id="locate" class="alt" aria-label="Use my location">◎</button></div>
+<div id="status" class="status">Loading 3D engine…</div><div class="stats"><div class="stat"><strong id="count">0</strong>buildings</div><div class="stat"><strong id="source">—</strong>source</div><div class="stat"><strong>220m</strong>radius</div></div>
+</section><div class="help">Drag to orbit · pinch to zoom · two-finger drag to pan</div><div id="loading" class="loading"><div><h2>GEOVOXEL</h2><p>Loading the 3D renderer…</p></div></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(()=>{
+const $=s=>document.querySelector(s),status=$('#status'),loading=$('#loading');
+if(!window.THREE){loading.innerHTML='<div><h2>Could not load 3D engine</h2><p>Open this page in Safari and check your internet connection.</p></div>';return}
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9fc3d4);scene.fog=new THREE.Fog(0x9fc3d4,240,760);
+const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,1500);camera.position.set(145,125,165);
+const renderer=new THREE.WebGLRenderer({canvas:$('#view'),antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.outputEncoding=THREE.sRGBEncoding;
+const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.target.set(0,15,0);controls.maxPolarAngle=Math.PI*.49;controls.minDistance=25;controls.maxDistance=520;
+scene.add(new THREE.HemisphereLight(0xe9f8ff,0x536449,1.8));const sun=new THREE.DirectionalLight(0xfff1d2,1.7);sun.position.set(-120,220,100);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-250;sun.shadow.camera.right=250;sun.shadow.camera.top=250;sun.shadow.camera.bottom=-250;scene.add(sun);
+const world=new THREE.Group();scene.add(world);const palette=[0xd7bc84,0xc8a775,0xbdc1b5,0xc78c70,0xddd3ba,0xa2aba1];
+function clear(){while(world.children.length){const o=world.children.pop();o.geometry&&o.geometry.dispose();if(o.material)o.material.dispose()}}
+function base(){const g=new THREE.Mesh(new THREE.BoxGeometry(420,5,420),new THREE.MeshStandardMaterial({color:0x819f73,roughness:1}));g.position.y=-3;g.receiveShadow=true;world.add(g);const grid=new THREE.GridHelper(420,84,0x4d6858,0x6f8b73);grid.position.y=.02;grid.material.opacity=.22;grid.material.transparent=true;world.add(grid)}
+function roadGrid(){const mat=new THREE.MeshStandardMaterial({color:0x59666b,roughness:1});for(let i=-180;i<=180;i+=45){let a=new THREE.Mesh(new THREE.BoxGeometry(410,.12,7),mat),b=new THREE.Mesh(new THREE.BoxGeometry(7,.12,410),mat);a.position.set(0,.07,i);b.position.set(i,.08,0);world.add(a,b)}}
+function addBox(x,z,w,d,h,color){const geo=new THREE.BoxGeometry(Math.max(3,w),h,Math.max(3,d));const mat=new THREE.MeshStandardMaterial({color,roughness:.9,flatShading:true});const m=new THREE.Mesh(geo,mat);m.position.set(x,h/2,z);m.castShadow=true;m.receiveShadow=true;world.add(m);if(h>20&&Math.random()>.55){const u=Math.max(2,Math.min(5,Math.min(w,d)*.2));const r=new THREE.Mesh(new THREE.BoxGeometry(u*2,u,u*2),new THREE.MeshStandardMaterial({color:0x737b76,roughness:1}));r.position.set(x,h+u/2,z);r.castShadow=true;world.add(r)}}
+function fallback(){clear();base();roadGrid();let n=0;for(let x=-170;x<170;x+=22)for(let z=-170;z<170;z+=22){if(Math.abs(x)%45<8||Math.abs(z)%45<8||Math.random()<.2)continue;addBox(x+(Math.random()-.5)*4,z+(Math.random()-.5)*4,10+Math.random()*8,10+Math.random()*8,6+Math.pow(Math.random(),2)*52,palette[n++%palette.length])}$('#count').textContent=n;$('#source').textContent='demo';status.textContent='Procedural fallback loaded. Tap Build to request real map buildings.'}
+function meters(a,b,a0,b0){return[(b-b0)*111320*Math.cos(a0*Math.PI/180),-(a-a0)*110540]}
+function height(t){if(t&&t.height){const n=parseFloat(t.height);if(isFinite(n))return Math.max(4,Math.min(100,n))}if(t&&t['building:levels'])return Math.max(4,Math.min(100,parseFloat(t['building:levels'])*3.15));return 7+Math.random()*23}
+async function build(){const lat=parseFloat($('#lat').value),lon=parseFloat($('#lon').value);if(!isFinite(lat)||!isFinite(lon)){status.textContent='Enter valid coordinates.';return}$('#build').disabled=true;status.textContent='Downloading nearby OpenStreetMap buildings…';const q='[out:json][timeout:25];way["building"](around:220,'+lat+','+lon+');out geom;';const servers=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];let data=null,error=null;for(const server of servers){try{const r=await fetch(server,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});if(!r.ok)throw Error('HTTP '+r.status);data=await r.json();break}catch(e){error=e}}try{if(!data)throw error||Error('No response');clear();base();let n=0;for(const el of data.elements||[]){if(!el.geometry||el.geometry.length<3)continue;const pts=el.geometry.map(p=>meters(p.lat,p.lon,lat,lon)),xs=pts.map(p=>p[0]),zs=pts.map(p=>p[1]),minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs),x=(minX+maxX)/2,z=(minZ+maxZ)/2;if(Math.abs(x)>205||Math.abs(z)>205)continue;addBox(x,z,maxX-minX,maxZ-minZ,height(el.tags),palette[n++%palette.length])}roadGrid();if(!n)throw Error('No buildings found');$('#count').textContent=n;$('#source').textContent='OSM';status.textContent='Built '+n+' mapped buildings near '+lat.toFixed(4)+', '+lon.toFixed(4)+'. © OpenStreetMap contributors'}catch(e){fallback();status.textContent='Live map service was unavailable, so the procedural city loaded instead. Try Build again.'}finally{$('#build').disabled=false}}
+$('#preset').onchange=e=>{const [a,b]=e.target.value.split(',');$('#lat').value=a;$('#lon').value=b};$('#build').onclick=build;$('#locate').onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{$('#lat').value=p.coords.latitude.toFixed(6);$('#lon').value=p.coords.longitude.toFixed(6);build()},()=>status.textContent='Location permission was not granted.'):status.textContent='Geolocation is unavailable.';
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});fallback();loading.hidden=true;build();
+})();
+</script>
 </body>
 </html>
