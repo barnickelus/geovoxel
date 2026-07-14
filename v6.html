@@ -15,7 +15,7 @@ input,select,button,a.action{height:38px;border:0;border-radius:10px;font:inheri
 input,select{width:100%;padding:0 9px;color:#142029;background:#eff6f8}select{flex:1}
 button,a.action{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;cursor:pointer;font-weight:800;color:#14200d;background:#bafd67;text-decoration:none;white-space:nowrap}
 button.alt,a.action.alt{color:#142029;background:#dae9ee}button.active{background:#78d8ff;color:#082033}button:disabled{opacity:.5}
-.flyui{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;display:none;gap:8px;align-items:center}.flyui.on{display:flex}.flyui button{width:46px}.spd{min-width:70px;text-align:center;font-size:12px;font-weight:800;color:#eef8fb;background:#07141dcc;padding:10px;border-radius:10px}
+.flyui{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;display:none;gap:8px;align-items:center}.flyui.on{display:flex}.flyui button{min-width:46px}.spd{min-width:70px;text-align:center;font-size:12px;font-weight:800;color:#eef8fb;background:#07141dcc;padding:10px;border-radius:10px}
 .coords{display:grid;grid-template-columns:1fr 1fr 42px;gap:7px}.options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .field{display:flex;flex-direction:column;gap:3px}.field label{font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:#8fa8b4}
 .timerow{display:grid;grid-template-columns:1fr 56px;gap:7px;align-items:center;margin-top:8px}
@@ -55,7 +55,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 </section>
 <div class="compass"><div id="needle" class="needle"></div></div>
 <div id="help" class="help">Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night</div>
-<div id="flyui" class="flyui"><button id="spdDown" class="alt" aria-label="Slower">−</button><div id="spd" class="spd">34 m/s</div><button id="spdUp" class="alt" aria-label="Faster">+</button></div>
+<div id="flyui" class="flyui"><button id="spdDown" class="alt" aria-label="Slower">−</button><div id="spd" class="spd">34 m/s</div><button id="spdUp" class="alt" aria-label="Faster">+</button><button id="pov" class="alt">POV</button></div>
 <div id="toast" class="toast"></div>
 <div id="loading" class="loading"><div><h2>GEOVOXEL V6</h2><p>Loading the terrain renderer…</p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -548,9 +548,17 @@ const addArea=(group,pts,style,lod)=>{
   const shape=makeShape(pts);if(!shape)return false;
   try{
     const geo=new THREE.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
-    const mesh=new THREE.Mesh(geo,style.water?shared.water:areaMat(style.color));
-    const c=centroid(pts);
-    mesh.position.y=elevAtWorld(c.x,c.z)+style.y+.05;
+    if(style.water){
+      let eMin=Infinity;
+      for(const p of pts)eMin=Math.min(eMin,elevAtWorld(p.x,p.z));
+      const mesh=new THREE.Mesh(geo,shared.water);
+      mesh.position.y=(Number.isFinite(eMin)?eMin:0)+style.y+.05;
+      mesh.receiveShadow=lod<2;group.add(mesh);return true;
+    }
+    const pos=geo.attributes.position;
+    for(let i=0;i<pos.count;i++)pos.setY(i,elevAtWorld(pos.getX(i),pos.getZ(i))+style.y+.07);
+    geo.computeVertexNormals();
+    const mesh=new THREE.Mesh(geo,areaMat(style.color));
     mesh.receiveShadow=lod<2;group.add(mesh);return true;
   }catch{return false}
 };
@@ -886,7 +894,7 @@ const makeChunk=(cx,cz,desiredLod)=>{
   c.group.name=`chunk-${key}`;world.add(c.group);S.chunks.set(key,c);enqueue(c,2,false);return c;
 };
 const desiredChunks=()=>{
-  const radius=Number($('#radius').value)||1,cx=Math.round(controls.target.x/CHUNK),cz=Math.round(controls.target.z/CHUNK);
+  const radius=(Number($('#radius').value)||1)+(FLY.on&&FLY.pos.y>140?1:0),cx=Math.round(controls.target.x/CHUNK),cz=Math.round(controls.target.z/CHUNK);
   const candidates=[];
   for(let dx=-radius;dx<=radius;dx++)for(let dz=-radius;dz<=radius;dz++)candidates.push({dx,dz,d:Math.hypot(dx,dz),lod:lodForOffset(dx,dz)});
   candidates.sort((a,b)=>a.d-b.d);
@@ -924,7 +932,7 @@ const pigeon=(()=>{
   g.scale.setScalar(1.8);g.visible=false;g.rotation.order='YZX';scene.add(g);
   return{group:g,wl,wr};
 })();
-const FLY={on:false,heading:0,pitch:0,speed:34,turn:0,rise:0,pos:new THREE.Vector3()};
+const FLY={on:false,pov:false,heading:0,pitch:0,speed:34,turn:0,rise:0,pos:new THREE.Vector3()};
 const updateFlight=dtMs=>{
   if(!FLY.on)return;
   const dt=Math.min(.08,Math.max(.001,dtMs/1000));
@@ -945,16 +953,29 @@ const updateFlight=dtMs=>{
   const flap=Math.sin(performance.now()/1000*(7+FLY.speed*.06))*.55;
   pigeon.wl.rotation.x=-flap;pigeon.wr.rotation.x=flap;
   controls.target.set(FLY.pos.x,Math.max(2,FLY.pos.y),FLY.pos.z);
-  const back=16+FLY.speed*.14;
-  const desired=new THREE.Vector3(
-    FLY.pos.x-Math.cos(FLY.heading)*back,
-    FLY.pos.y+6.5,
-    FLY.pos.z-Math.sin(FLY.heading)*back);
-  camera.position.lerp(desired,1-Math.pow(.002,dt));
-  camera.lookAt(FLY.pos.x,FLY.pos.y+1.5,FLY.pos.z);
+  const cosH=Math.cos(FLY.heading),sinH=Math.sin(FLY.heading);
+  if(FLY.pov){
+    const desired=new THREE.Vector3(FLY.pos.x+cosH*1.5,FLY.pos.y+1.3,FLY.pos.z+sinH*1.5);
+    camera.position.lerp(desired,1-Math.pow(.0001,dt));
+    camera.lookAt(
+      FLY.pos.x+cosH*cosP*45,
+      FLY.pos.y+1.3+Math.sin(FLY.pitch)*45,
+      FLY.pos.z+sinH*cosP*45);
+  }else{
+    const back=16+FLY.speed*.14;
+    const desired=new THREE.Vector3(FLY.pos.x-cosH*back,FLY.pos.y+6.5,FLY.pos.z-sinH*back);
+    camera.position.lerp(desired,1-Math.pow(.002,dt));
+    camera.lookAt(FLY.pos.x,FLY.pos.y+1.5,FLY.pos.z);
+  }
+};
+const setPov=on=>{
+  FLY.pov=on;
+  $('#pov').classList.toggle('active',on);
+  pigeon.group.visible=FLY.on&&!on;
+  if(FLY.on)toast(on?'Pigeon POV — press V or tap POV to go back':'Chase camera');
 };
 const setFly=on=>{
-  FLY.on=on;pigeon.group.visible=on;controls.enabled=!on;
+  FLY.on=on;pigeon.group.visible=on&&!FLY.pov;controls.enabled=!on;
   $('#fly').textContent=on?'Land':'🕊 Fly';$('#fly').classList.toggle('active',on);
   $('#flyui').classList.toggle('on',on);
   $('#help').textContent=on?'Steer: drag, or ← → turn · ↑ ↓ climb and dive · + − speed · Land to return':'Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night';
@@ -982,6 +1003,7 @@ addEventListener('keydown',e=>{
   flyKeys[e.key.toLowerCase()]=true;
   if(e.key==='+'||e.key==='=')setSpeed(FLY.speed+8);
   if(e.key==='-'||e.key==='_')setSpeed(FLY.speed-8);
+  if(e.key.toLowerCase()==='v')setPov(!FLY.pov);
   updFlyInput();
 });
 addEventListener('keyup',e=>{if(!FLY.on)return;flyKeys[e.key.toLowerCase()]=false;updFlyInput()});
@@ -1126,6 +1148,7 @@ $('#retry').onclick=retryErrors;
 $('#fly').onclick=()=>setFly(!FLY.on);
 $('#spdUp').onclick=()=>setSpeed(FLY.speed+8);
 $('#spdDown').onclick=()=>setSpeed(FLY.speed-8);
+$('#pov').onclick=()=>setPov(!FLY.pov);
 $('#share').onclick=async()=>{
   updateURL();
   try{await navigator.clipboard.writeText(location.href);toast('Link copied — it restores this exact spot and time of day')}
