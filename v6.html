@@ -46,16 +46,18 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
   <div class="options row"><div class="field"><label>Streaming</label><select id="radius"><option value="1">3 × 3 bands</option><option value="2" selected>5 × 5 bands</option><option value="3">7 × 7 bands</option></select></div><div class="field"><label>Near detail</label><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></div><div class="field"><label>Base voxel</label><select id="voxel"><option value="0">Exact near</option><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></div></div>
   <div class="timerow"><input id="time" type="range" min="0" max="24" step="0.25" value="10.5"><div id="timeread" class="timeread">10:30</div></div>
   <div class="lodlegend"><span class="near">Center · full</span><span class="mid">Ring · simplified</span><span class="far">Outer · blocked in</span></div>
-  <div class="row secondary"><button id="fly" class="alt">🕊 Fly</button><button id="reset" class="alt">Reset view</button><button id="retry" class="alt">Retry</button><button id="share" class="alt">Share</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
+  <div class="row secondary"><button id="fly" class="alt">🕊 Fly</button><button id="pac" class="alt">ᗧ Play</button><button id="reset" class="alt">Reset view</button><button id="retry" class="alt">Retry</button><button id="share" class="alt">Share</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
   <div id="status" class="status">Loading 3D engine…</div>
   <div class="stats"><div class="stat"><strong id="loaded">0</strong>chunks</div><div class="stat"><strong id="queued">0</strong>queued</div><div class="stat"><strong id="features">0</strong>features</div><div class="stat"><strong id="source">—</strong>source</div></div>
   <div id="lodread" class="coordread">LOD: 0 near · 0 middle · 0 far</div>
   <div id="coords" class="coordread"></div>
+  <div class="coordread">Pale clay buildings = height unknown, massing estimated · detailed facades = mapped height</div>
   <div class="coordread"><a href="v5.html" style="color:#8fa8b4">← v5 Overpass build</a> · data © OpenStreetMap contributors, OpenFreeMap · terrain: Mapzen/AWS</div>
 </section>
 <div class="compass"><div id="needle" class="needle"></div></div>
 <div id="help" class="help">Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night</div>
-<div id="flyui" class="flyui"><button id="spdDown" class="alt" aria-label="Slower">−</button><div id="spd" class="spd">34 m/s</div><button id="spdUp" class="alt" aria-label="Faster">+</button><button id="pov" class="alt">POV</button></div>
+<div id="flyui" class="flyui"><button id="spdDown" class="alt" aria-label="Slower">−</button><div id="spd" class="spd">34 m/s</div><button id="spdUp" class="alt" aria-label="Faster">+</button><button id="pov" class="alt">POV</button><button id="poop" class="alt" aria-label="Drop">💩</button></div>
+<div id="pacui" class="flyui"><div id="pacScore" class="spd">0</div><div id="pacLives" class="spd">♥♥♥</div><button id="pacExit" class="alt">Exit</button></div>
 <div id="toast" class="toast"></div>
 <div id="loading" class="loading"><div><h2>GEOVOXEL V6</h2><p>Loading the terrain renderer…</p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -74,8 +76,8 @@ const TERRAIN_Z=13,TILE_PX=256;
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x9fc3d4);
-scene.fog=new THREE.Fog(0x9fc3d4,380,1180);
-const camera=new THREE.PerspectiveCamera(56,innerWidth/innerHeight,.1,2600);
+scene.fog=new THREE.FogExp2(0x9fc3d4,.00092);
+const camera=new THREE.PerspectiveCamera(56,innerWidth/innerHeight,.1,3400);
 const renderer=new THREE.WebGLRenderer({canvas:$('#view'),antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,MOBILE?1.35:1.8));
 renderer.setSize(innerWidth,innerHeight);
@@ -100,6 +102,9 @@ sun.shadow.bias=-.0008;
 scene.add(sun);
 const world=new THREE.Group();
 scene.add(world);
+const horizonMat=new THREE.MeshBasicMaterial({color:0x7f9377});
+const horizon=new THREE.Mesh(new THREE.CircleGeometry(2600,48),horizonMat);
+horizon.rotation.x=-Math.PI/2;horizon.position.y=-1.6;scene.add(horizon);
 
 const shared={
   ground:new THREE.MeshStandardMaterial({color:0x849878,roughness:1}),
@@ -226,6 +231,45 @@ const cleanPoints=(geometry,lod,closed=false)=>{
     if(Math.hypot(a.x-b.x,a.z-b.z)>.18)points.push({...a});
   }
   return simplifyPoints(points,lod===0?0:lod===1?1.5:5,closed);
+};
+const cleanWorld=(worldPts,lod,closed=false)=>{
+  const points=[];
+  for(const w of worldPts){
+    const q={x:snapValue(w.x,lod),z:snapValue(w.z,lod)};
+    const prev=points[points.length-1];
+    if(!prev||Math.hypot(q.x-prev.x,q.z-prev.z)>.18)points.push(q);
+  }
+  if(closed&&points.length>2){
+    const a=points[0],b=points[points.length-1];
+    if(Math.hypot(a.x-b.x,a.z-b.z)>.18)points.push({...a});
+  }
+  return simplifyPoints(points,lod===0?0:lod===1?1.5:5,closed);
+};
+const clipPolyToRect=(pts,rect)=>{
+  let poly=pts;
+  const edgeTests=[
+    p=>p.x>=rect.minX,p=>p.x<=rect.maxX,
+    p=>p.z>=rect.minZ,p=>p.z<=rect.maxZ
+  ];
+  const intersect=(a,b,edge)=>{
+    let t;
+    if(edge===0)t=(rect.minX-a.x)/(b.x-a.x);
+    else if(edge===1)t=(rect.maxX-a.x)/(b.x-a.x);
+    else if(edge===2)t=(rect.minZ-a.z)/(b.z-a.z);
+    else t=(rect.maxZ-a.z)/(b.z-a.z);
+    return{x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t};
+  };
+  for(let e=0;e<4&&poly.length;e++){
+    const inside=edgeTests[e],out=[];
+    for(let i=0;i<poly.length;i++){
+      const cur=poly[i],prev=poly[(i+poly.length-1)%poly.length];
+      const cIn=inside(cur),pIn=inside(prev);
+      if(cIn){if(!pIn)out.push(intersect(prev,cur,e));out.push(cur)}
+      else if(pIn)out.push(intersect(prev,cur,e));
+    }
+    poly=out;
+  }
+  return poly;
 };
 const centroid=pts=>{let x=0,z=0;for(const p of pts){x+=p.x;z+=p.z}return pts.length?{x:x/pts.length,z:z/pts.length}:{x:0,z:0}};
 const polygonArea=pts=>{let a=0;for(let i=0,j=pts.length-1;i<pts.length;j=i++)a+=pts[j].x*pts[i].z-pts[i].x*pts[j].z;return Math.abs(a*.5)};
@@ -402,12 +446,13 @@ const parseGroups=(layers,z,x,y)=>{
   };
   const px0=r=>r[0][0]+','+r[0][1];
   const bl=layers.building;
-  if(bl)groups.buildings=polyItems(bl,p=>({
-    building:'yes',
-    height:p.render_height!=null?String(p.render_height):undefined,
-    min_height:p.render_min_height!=null?String(p.render_min_height):undefined,
-    'building:colour':typeof p.colour==='string'?p.colour:undefined
-  }));
+  if(bl)groups.buildings=polyItems(bl,p=>{
+    const t={building:'yes'};
+    if(p.render_height!=null)t.height=String(p.render_height);else t._est='1';
+    if(p.render_min_height!=null)t.min_height=String(p.render_min_height);
+    if(typeof p.colour==='string')t['building:colour']=p.colour;
+    return t;
+  });
   const tr=layers.transportation;
   if(tr)for(const f of tr.features){
     if(f.type!==2||!f.geom)continue;
@@ -544,6 +589,55 @@ const elevationAbs=(lat,lon)=>{
 const relElev=(lat,lon)=>elevationAbs(lat,lon)-(S.baseElev||0);
 const elevAtWorld=(x,z)=>{const g=worldToGeo(x,z);return relElev(g.lat,g.lon)};
 
+const collidersNear=(x,z)=>{
+  const cx=Math.round(x/CHUNK),cz=Math.round(z/CHUNK),out=[];
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+    const c=S.chunks.get(chunkKey(cx+dx,cz+dz));
+    if(c&&c.colliders)out.push(...c.colliders);
+  }
+  return out;
+};
+const nearestOnPoly=(x,z,poly)=>{
+  let best=null,bd=Infinity;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const a=poly[j],b=poly[i],dx=b.x-a.x,dz=b.z-a.z;
+    const L=dx*dx+dz*dz;if(L<1e-9)continue;
+    const t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/L));
+    const px=a.x+t*dx,pz=a.z+t*dz,d=Math.hypot(x-px,z-pz);
+    if(d<bd){bd=d;best={x:px,z:pz,d}}
+  }
+  return best;
+};
+const resolveBuildingHit=(pos,r)=>{
+  for(const col of collidersNear(pos.x,pos.z)){
+    const b=col.b;
+    if(pos.x<b.minX-r||pos.x>b.maxX+r||pos.z<b.minZ-r||pos.z>b.maxZ+r)continue;
+    if(pos.y>col.top+.5)continue;
+    const inside=pointInPoly(pos.x,pos.z,col.pts);
+    const near=nearestOnPoly(pos.x,pos.z,col.pts);
+    if(!near)continue;
+    if(inside){
+      const dx=near.x-pos.x,dz=near.z-pos.z,d=Math.hypot(dx,dz)||1;
+      pos.x=near.x+dx/d*r;pos.z=near.z+dz/d*r;
+      return col;
+    }
+    if(near.d<r){
+      const dx=pos.x-near.x,dz=pos.z-near.z,d=Math.hypot(dx,dz)||1;
+      pos.x=near.x+dx/d*r;pos.z=near.z+dz/d*r;
+      return col;
+    }
+  }
+  return null;
+};
+const roofUnder=(x,z,y)=>{
+  for(const col of collidersNear(x,z)){
+    const b=col.b;
+    if(x<b.minX||x>b.maxX||z<b.minZ||z>b.maxZ)continue;
+    if(y>=col.top-2&&y<=col.top+4&&pointInPoly(x,z,col.pts))return col;
+  }
+  return null;
+};
+
 const addArea=(group,pts,style,lod)=>{
   const shape=makeShape(pts);if(!shape)return false;
   try{
@@ -551,8 +645,9 @@ const addArea=(group,pts,style,lod)=>{
     if(style.water){
       let eMin=Infinity;
       for(const p of pts)eMin=Math.min(eMin,elevAtWorld(p.x,p.z));
+      eMin=Number.isFinite(eMin)?Math.round(eMin*2)/2:0;
       const mesh=new THREE.Mesh(geo,shared.water);
-      mesh.position.y=(Number.isFinite(eMin)?eMin:0)+style.y+.05;
+      mesh.position.y=eMin+style.y+.05;
       mesh.receiveShadow=lod<2;group.add(mesh);return true;
     }
     const pos=geo.attributes.position;
@@ -602,22 +697,23 @@ const buildingColor=(t,id,lod)=>{
   let color;
   if(explicit&&/^#?[0-9a-f]{6}$/i.test(explicit))color=parseInt(explicit.replace('#',''),16);
   else color=buildingPalette[hash(id)%buildingPalette.length];
+  if(t._est){const c=new THREE.Color(color);c.lerp(new THREE.Color(0xd3d8d0),.55);return c.getHex()}
   if(lod===2){const c=new THREE.Color(color);c.lerp(new THREE.Color(0xb9b29f),.28);return c.getHex()}
   return color;
 };
 const roofColor=id=>[0x77786f,0x806b5b,0x666e70,0x8b7562][hash(id+'r')%4];
 const addBuilding=(group,pts,tags,id,lod)=>{
-  if(pts.length<4)return false;
-  const b=boundsOf(pts);if(b.w<1.5||b.d<1.5)return false;
+  if(pts.length<4)return null;
+  const b=boundsOf(pts);if(b.w<1.5||b.d<1.5)return null;
   const height=buildingHeight(tags,id,lod),color=buildingColor(tags,id,lod);
   const eC=elevAtWorld(b.x,b.z);
   if(lod===2){
     const w=Math.max(8,Math.round(b.w/8)*8),d=Math.max(8,Math.round(b.d/8)*8);
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,height,d),buildingMat(color));
     mesh.position.set(snapValue(b.x,2),eC+height/2,snapValue(b.z,2));
-    group.add(mesh);return true;
+    group.add(mesh);return{base:eC,top:eC+height,b,pts};
   }
-  const shape=makeShape(pts);if(!shape)return false;
+  const shape=makeShape(pts);if(!shape)return null;
   const samples=[eC,elevAtWorld(b.minX,b.minZ),elevAtWorld(b.maxX,b.minZ),elevAtWorld(b.minX,b.maxZ),elevAtWorld(b.maxX,b.maxZ)];
   const eMin=Math.min(...samples),eMax=Math.max(...samples);
   const minH=minHeight(tags);
@@ -628,15 +724,16 @@ const addBuilding=(group,pts,tags,id,lod)=>{
     geo.rotateX(-Math.PI/2);
     geo.translate(0,base-skirt,0);
     geo.computeVertexNormals();
-    const mesh=new THREE.Mesh(geo,lod===0?[buildingMat(color),facadeMat(color)]:buildingMat(color));
+    const detailed=lod===0&&!tags._est;
+    const mesh=new THREE.Mesh(geo,detailed?[buildingMat(color),facadeMat(color)]:buildingMat(color));
     mesh.receiveShadow=true;mesh.castShadow=lod===0;group.add(mesh);
     const top=base+height;
     if(lod===0){
-      if(Number($('#detail').value)===2){
+      if(detailed&&Number($('#detail').value)===2){
         const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),shared.edge);
         group.add(edges);
       }
-      try{
+      if(detailed)try{
         const rg=new THREE.ShapeGeometry(shape);rg.rotateX(-Math.PI/2);
         const rm=new THREE.Mesh(rg,roofMat(roofColor(id)));
         rm.position.y=top+.12;group.add(rm);
@@ -645,8 +742,8 @@ const addBuilding=(group,pts,tags,id,lod)=>{
       const cap=new THREE.Mesh(new THREE.BoxGeometry(Math.max(2,b.w*.88),.35,Math.max(2,b.d*.88)),roofMat(roofColor(id)));
       cap.position.set(b.x,top+.18,b.z);group.add(cap);
     }
-    return true;
-  }catch{return false}
+    return{base:eMin,top,b,pts};
+  }catch{return null}
 };
 const addSegmentBox=(group,a,b,width,mat,lift=.07,height=.11)=>{
   const dx=b.x-a.x,dz=b.z-a.z,dy=(b.y||0)-(a.y||0);
@@ -751,6 +848,38 @@ const addChunkGround=(c,res=8)=>{
   mesh.receiveShadow=c.desiredLod<2;
   c.group.add(mesh);c.ground=mesh;c.groundRes=res;
 };
+const dotGeo=new THREE.SphereGeometry(.45,6,5);
+const dotMat=new THREE.MeshBasicMaterial({color:0xffe9a8});
+const dotKey=p=>`${Math.round(p.x/3)},${Math.round(p.z/3)}`;
+const addChunkDots=(c,content,roadItems,bounds)=>{
+  c.eatenDots=c.eatenDots||new Set();
+  const positions=[];
+  for(const item of roadItems){
+    if(positions.length>=220)break;
+    const pts=cleanPoints(item.pts,0,false);
+    for(let i=1;i<pts.length&&positions.length<220;i++){
+      const A=pts[i-1],B=pts[i],len=Math.hypot(B.x-A.x,B.z-A.z);
+      const n=Math.floor(len/14);
+      for(let k=1;k<=n&&positions.length<220;k++){
+        const t=k/n,x=A.x+(B.x-A.x)*t,z=A.z+(B.z-A.z)*t;
+        if(!inBounds(x,z,bounds))continue;
+        positions.push({x,z,pellet:positions.length%19===18});
+      }
+    }
+  }
+  if(!positions.length){c.dots=null;return}
+  const mesh=new THREE.InstancedMesh(dotGeo,dotMat,positions.length);
+  const m=new THREE.Matrix4();
+  positions.forEach((p,i)=>{
+    const eaten=c.eatenDots.has(dotKey(p));
+    const sc=eaten?0:(p.pellet?2.6:1);
+    m.compose(new THREE.Vector3(p.x,elevAtWorld(p.x,p.z)+1,p.z),new THREE.Quaternion(),new THREE.Vector3(sc,sc,sc));
+    mesh.setMatrixAt(i,m);
+  });
+  mesh.visible=PAC.on;
+  content.add(mesh);
+  c.dots={mesh,positions};
+};
 
 const coveringGroups=(c,lod)=>{
   const zv=lod===2?13:14;
@@ -774,10 +903,12 @@ const renderChunk=(c,lod)=>{
   const g=coveringGroups(c,lod);
   const trees=[],cars=[];
   let count=0;
+  const clipRect={minX:bounds.minX-1,maxX:bounds.maxX+1,minZ:bounds.minZ-1,maxZ:bounds.maxZ+1};
   for(const item of g.areas){
-    const w=geoToWorld(item.c.lat,item.c.lon);
-    if(!inBounds(w.x,w.z,bounds))continue;
-    const pts=cleanPoints(item.pts,lod,true);if(pts.length<3)continue;
+    const wpts=item.pts.map(p=>geoToWorld(p.lat,p.lon));
+    const clipped=clipPolyToRect(wpts,clipRect);
+    if(clipped.length<3)continue;
+    const pts=cleanWorld(clipped,lod,true);if(pts.length<3)continue;
     const style=areaStyle(item.tags);
     if(lod===2&&!style.water&&polygonArea(pts)<1400)continue;
     if(addArea(content,pts,style,lod))count++;
@@ -811,13 +942,16 @@ const renderChunk=(c,lod)=>{
   const quality=Number($('#detail').value);
   const limit=lod===0?(quality===2?300:quality===1?230:160):lod===1?230:190;
   let built=0;
+  c.colliders=[];
   for(const item of g.buildings){
     if(built>=limit)break;
     const w=geoToWorld(item.c.lat,item.c.lon);
     if(!inBounds(w.x,w.z,bounds))continue;
     const pts=cleanPoints(item.pts,lod,true);if(pts.length<4)continue;
-    if(addBuilding(content,pts,item.tags,item.id,lod)){built++;count++}
+    const info=addBuilding(content,pts,item.tags,item.id,lod);
+    if(info){built++;count++;c.colliders.push(info)}
   }
+  if(lod===0)addChunkDots(c,content,g.roads,bounds);
   addTreeInstances(content,trees,lod);addCars(content,cars,lod);
   if(c.content){S.totalFeatures-=c.featureCount||0;disposeObject(c.content)}
   c.content=content;c.group.add(content);c.lod=lod;c.featureCount=count;S.totalFeatures+=count;
@@ -925,6 +1059,18 @@ const pigeon=(()=>{
   const beak=new THREE.Mesh(new THREE.ConeGeometry(.13,.45,5),new THREE.MeshStandardMaterial({color:0xd88a3f,roughness:.7}));
   beak.rotation.z=-Math.PI/2;beak.position.set(1.52,.5,0);g.add(beak);
   const tail=new THREE.Mesh(new THREE.BoxGeometry(.95,.1,.55),dark);tail.position.set(-1.05,.2,0);tail.rotation.z=.28;g.add(tail);
+  const band=new THREE.Mesh(new THREE.BoxGeometry(.28,.12,.56),new THREE.MeshBasicMaterial({color:0xe8e4da}));
+  band.position.set(-1.38,.29,0);band.rotation.z=.28;g.add(band);
+  const eyeMat=new THREE.MeshBasicMaterial({color:0x14181c});
+  for(const side of[-1,1]){
+    const eye=new THREE.Mesh(new THREE.BoxGeometry(.09,.09,.09),eyeMat);
+    eye.position.set(1.3,.62,side*.2);g.add(eye);
+  }
+  const footMat=new THREE.MeshStandardMaterial({color:0xc26a3c,roughness:.8});
+  for(const side of[-1,1]){
+    const foot=new THREE.Mesh(new THREE.BoxGeometry(.22,.34,.12),footMat);
+    foot.position.set(.25,-.6,side*.22);g.add(foot);
+  }
   const wingL=new THREE.BoxGeometry(.95,.07,1.5);wingL.translate(0,0,.8);
   const wingR=new THREE.BoxGeometry(.95,.07,1.5);wingR.translate(0,0,-.8);
   const wl=new THREE.Mesh(wingL,dark);wl.position.set(.1,.32,.3);g.add(wl);
@@ -932,28 +1078,48 @@ const pigeon=(()=>{
   g.scale.setScalar(1.8);g.visible=false;g.rotation.order='YZX';scene.add(g);
   return{group:g,wl,wr};
 })();
-const FLY={on:false,pov:false,heading:0,pitch:0,speed:34,turn:0,rise:0,pos:new THREE.Vector3()};
+const FLY={on:false,pov:false,perched:false,heading:0,pitch:0,speed:34,turn:0,rise:0,pos:new THREE.Vector3()};
 const updateFlight=dtMs=>{
   if(!FLY.on)return;
   const dt=Math.min(.08,Math.max(.001,dtMs/1000));
   FLY.heading+=FLY.turn*1.7*dt;
-  FLY.pitch=Math.max(-.95,Math.min(.95,FLY.pitch+FLY.rise*1.5*dt));
-  if(!FLY.rise)FLY.pitch*=Math.pow(.25,dt);
-  const cosP=Math.cos(FLY.pitch);
-  FLY.pos.x+=Math.cos(FLY.heading)*cosP*FLY.speed*dt;
-  FLY.pos.z+=Math.sin(FLY.heading)*cosP*FLY.speed*dt;
-  FLY.pos.y+=Math.sin(FLY.pitch)*FLY.speed*dt;
-  const floor=elevAtWorld(FLY.pos.x,FLY.pos.z)+2.5;
-  if(FLY.pos.y<floor){FLY.pos.y=floor;if(FLY.pitch<0)FLY.pitch=0}
-  if(FLY.pos.y>420)FLY.pos.y=420;
+  if(FLY.perched){
+    if(FLY.rise>0){FLY.perched=false;FLY.pitch=.45;FLY.pos.y+=2}
+  }else{
+    FLY.pitch=Math.max(-.95,Math.min(.95,FLY.pitch+FLY.rise*1.5*dt));
+    if(!FLY.rise)FLY.pitch*=Math.pow(.25,dt);
+    const cp=Math.cos(FLY.pitch);
+    FLY.pos.x+=Math.cos(FLY.heading)*cp*FLY.speed*dt;
+    FLY.pos.z+=Math.sin(FLY.heading)*cp*FLY.speed*dt;
+    FLY.pos.y+=Math.sin(FLY.pitch)*FLY.speed*dt;
+    const floor=elevAtWorld(FLY.pos.x,FLY.pos.z)+2.5;
+    if(FLY.pos.y<floor){FLY.pos.y=floor;if(FLY.pitch<0)FLY.pitch=0}
+    if(FLY.pos.y>420)FLY.pos.y=420;
+    const hit=resolveBuildingHit(FLY.pos,1.6);
+    if(hit){
+      if(FLY.pitch<=.05&&FLY.pos.y>=hit.top-3){
+        FLY.pos.y=hit.top+.9;FLY.perched=true;FLY.pitch=0;
+        toast('Perched on a rooftop — ↑ to take off, P to leave a mark');
+      }else{
+        FLY.speed=Math.max(10,FLY.speed*.55);FLY.pitch=Math.min(.5,FLY.pitch+.3);
+        $('#spd').textContent=Math.round(FLY.speed)+' m/s';
+      }
+    }else if(FLY.pitch<-.3){
+      const roof=roofUnder(FLY.pos.x,FLY.pos.z,FLY.pos.y);
+      if(roof&&FLY.pos.y<=roof.top+2.2){
+        FLY.pos.y=roof.top+.9;FLY.perched=true;FLY.pitch=0;
+        toast('Perched on a rooftop — ↑ to take off, P to leave a mark');
+      }
+    }
+  }
   pigeon.group.position.copy(FLY.pos);
   pigeon.group.rotation.y=-FLY.heading;
   pigeon.group.rotation.z=FLY.pitch*.7;
   pigeon.group.rotation.x=THREE.MathUtils.lerp(pigeon.group.rotation.x,-FLY.turn*.5,Math.min(1,dt*6));
-  const flap=Math.sin(performance.now()/1000*(7+FLY.speed*.06))*.55;
+  const flap=FLY.perched?0:Math.sin(performance.now()/1000*(7+FLY.speed*.06))*.55;
   pigeon.wl.rotation.x=-flap;pigeon.wr.rotation.x=flap;
   controls.target.set(FLY.pos.x,Math.max(2,FLY.pos.y),FLY.pos.z);
-  const cosH=Math.cos(FLY.heading),sinH=Math.sin(FLY.heading);
+  const cosH=Math.cos(FLY.heading),sinH=Math.sin(FLY.heading),cosP=Math.cos(FLY.pitch);
   if(FLY.pov){
     const desired=new THREE.Vector3(FLY.pos.x+cosH*1.5,FLY.pos.y+1.3,FLY.pos.z+sinH*1.5);
     camera.position.lerp(desired,1-Math.pow(.0001,dt));
@@ -975,7 +1141,8 @@ const setPov=on=>{
   if(FLY.on)toast(on?'Pigeon POV — press V or tap POV to go back':'Chase camera');
 };
 const setFly=on=>{
-  FLY.on=on;pigeon.group.visible=on&&!FLY.pov;controls.enabled=!on;
+  if(on&&PAC.on)setPac(false);
+  FLY.on=on;FLY.perched=false;pigeon.group.visible=on&&!FLY.pov;controls.enabled=!on;
   $('#fly').textContent=on?'Land':'🕊 Fly';$('#fly').classList.toggle('active',on);
   $('#flyui').classList.toggle('on',on);
   $('#help').textContent=on?'Steer: drag, or ← → turn · ↑ ↓ climb and dive · + − speed · Land to return':'Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night';
@@ -994,35 +1161,209 @@ const setFly=on=>{
 const setSpeed=v=>{FLY.speed=Math.max(10,Math.min(90,v));$('#spd').textContent=Math.round(FLY.speed)+' m/s'};
 const flyKeys={};
 const updFlyInput=()=>{
-  FLY.turn=(flyKeys.arrowright||flyKeys.d?1:0)-(flyKeys.arrowleft||flyKeys.a?1:0);
-  FLY.rise=(flyKeys.arrowup||flyKeys.w?1:0)-(flyKeys.arrowdown||flyKeys.s?1:0);
+  const turn=(flyKeys.arrowright||flyKeys.d?1:0)-(flyKeys.arrowleft||flyKeys.a?1:0);
+  const rise=(flyKeys.arrowup||flyKeys.w?1:0)-(flyKeys.arrowdown||flyKeys.s?1:0);
+  FLY.turn=turn;FLY.rise=rise;PAC.turn=turn;
 };
 addEventListener('keydown',e=>{
-  if(!FLY.on||e.target.tagName==='INPUT')return;
+  if((!FLY.on&&!PAC.on)||e.target.tagName==='INPUT')return;
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
   flyKeys[e.key.toLowerCase()]=true;
-  if(e.key==='+'||e.key==='=')setSpeed(FLY.speed+8);
-  if(e.key==='-'||e.key==='_')setSpeed(FLY.speed-8);
-  if(e.key.toLowerCase()==='v')setPov(!FLY.pov);
+  if(FLY.on){
+    if(e.key==='+'||e.key==='=')setSpeed(FLY.speed+8);
+    if(e.key==='-'||e.key==='_')setSpeed(FLY.speed-8);
+    if(e.key.toLowerCase()==='v')setPov(!FLY.pov);
+    if(e.key.toLowerCase()==='p')dropPoop();
+  }
   updFlyInput();
 });
-addEventListener('keyup',e=>{if(!FLY.on)return;flyKeys[e.key.toLowerCase()]=false;updFlyInput()});
+addEventListener('keyup',e=>{if(!FLY.on&&!PAC.on)return;flyKeys[e.key.toLowerCase()]=false;updFlyInput()});
 let steer=null;
 const flyCanvas=renderer.domElement;
 flyCanvas.addEventListener('pointerdown',e=>{
-  if(!FLY.on)return;
+  if(!FLY.on&&!PAC.on)return;
   steer={id:e.pointerId,x:e.clientX,y:e.clientY};
   flyCanvas.setPointerCapture(e.pointerId);
 });
 flyCanvas.addEventListener('pointermove',e=>{
-  if(!FLY.on||!steer||e.pointerId!==steer.id)return;
-  FLY.turn=Math.max(-1,Math.min(1,(e.clientX-steer.x)/110));
+  if((!FLY.on&&!PAC.on)||!steer||e.pointerId!==steer.id)return;
+  const turn=Math.max(-1,Math.min(1,(e.clientX-steer.x)/110));
+  FLY.turn=turn;PAC.turn=turn;
   FLY.rise=Math.max(-1,Math.min(1,(steer.y-e.clientY)/110));
 });
-const endSteer=e=>{if(steer&&e.pointerId===steer.id){steer=null;if(FLY.on){FLY.turn=0;FLY.rise=0}}};
+const endSteer=e=>{if(steer&&e.pointerId===steer.id){steer=null;FLY.turn=0;FLY.rise=0;PAC.turn=0}};
 flyCanvas.addEventListener('pointerup',endSteer);
 flyCanvas.addEventListener('pointercancel',endSteer);
-window.GV6={FLY,S};
+const poopMatWhite=new THREE.MeshBasicMaterial({color:0xf4f2ea});
+const poops=[],splats=[];
+const dropPoop=()=>{
+  if(!FLY.on)return;
+  const cosH=Math.cos(FLY.heading),sinH=Math.sin(FLY.heading);
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(.3,6,5),poopMatWhite);
+  mesh.position.set(FLY.pos.x,FLY.pos.y-.9,FLY.pos.z);
+  scene.add(mesh);
+  const fwd=FLY.perched?0:FLY.speed*.7;
+  poops.push({mesh,vx:cosH*fwd,vy:-1,vz:sinH*fwd});
+};
+const addSplat=(x,y,z,onRoof)=>{
+  const r=rng('splat'+splats.length+Math.round(x));
+  const mesh=new THREE.Mesh(new THREE.CircleGeometry(.55+r()*.5,7),poopMatWhite);
+  mesh.rotation.x=-Math.PI/2;mesh.rotation.z=r()*Math.PI;
+  mesh.scale.set(1,.7+r()*.6,1);
+  mesh.position.set(x,y+.09,z);
+  scene.add(mesh);splats.push(mesh);
+  if(splats.length>40){const old=splats.shift();scene.remove(old);old.geometry.dispose()}
+  toast(onRoof?'💩 Direct hit — rooftop splat!':'💩 Splat!');
+};
+const updatePoops=dtMs=>{
+  if(!poops.length)return;
+  const dt=Math.min(.08,Math.max(.001,dtMs/1000));
+  for(let i=poops.length-1;i>=0;i--){
+    const p=poops[i];
+    p.vy-=26*dt;
+    p.mesh.position.x+=p.vx*dt;p.mesh.position.y+=p.vy*dt;p.mesh.position.z+=p.vz*dt;
+    const x=p.mesh.position.x,y=p.mesh.position.y,z=p.mesh.position.z;
+    let landed=false;
+    for(const col of collidersNear(x,z)){
+      if(x<col.b.minX||x>col.b.maxX||z<col.b.minZ||z>col.b.maxZ)continue;
+      if(y<=col.top+.2&&y>=col.top-3&&pointInPoly(x,z,col.pts)){addSplat(x,col.top,z,true);landed=true;break}
+    }
+    if(!landed){
+      const ground=elevAtWorld(x,z);
+      if(y<=ground+.15){addSplat(x,ground,z,false);landed=true}
+    }
+    if(landed||y<-120){scene.remove(p.mesh);p.mesh.geometry.dispose();poops.splice(i,1)}
+  }
+};
+
+const PAC={on:false,heading:0,speed:10.5,turn:0,pos:new THREE.Vector3(),score:0,lives:3,fright:0,safe:0};
+const pacman=(()=>{
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0xffd23f,roughness:.45});
+  const half=new THREE.SphereGeometry(1.5,18,10,0,Math.PI*2,0,Math.PI/2);
+  const top=new THREE.Mesh(half,mat),bottom=new THREE.Mesh(half,mat);
+  bottom.rotation.x=Math.PI;
+  g.add(top,bottom);
+  g.visible=false;scene.add(g);
+  return{group:g,top,bottom};
+})();
+const ghostShared={
+  fright:new THREE.MeshStandardMaterial({color:0x2b48c8,roughness:.6}),
+  eyeW:new THREE.MeshBasicMaterial({color:0xffffff}),
+  eyeB:new THREE.MeshBasicMaterial({color:0x20242c})
+};
+const makeGhost=color=>{
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color,roughness:.6});
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.3,1.7,10),mat);body.position.y=.85;g.add(body);
+  const dome=new THREE.Mesh(new THREE.SphereGeometry(1.15,12,8,0,Math.PI*2,0,Math.PI/2),mat);dome.position.y=1.7;g.add(dome);
+  const parts=[body,dome];
+  for(const side of[-1,1]){
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(.28,8,6),ghostShared.eyeW);
+    eye.position.set(.55,1.9,side*.42);g.add(eye);
+    const pupil=new THREE.Mesh(new THREE.SphereGeometry(.13,6,5),ghostShared.eyeB);
+    pupil.position.set(.78,1.9,side*.42);g.add(pupil);
+  }
+  g.visible=false;scene.add(g);
+  return{group:g,parts,mat,heading:0,pos:new THREE.Vector3(),wob:Math.random()*7};
+};
+const ghosts=[0xe23b3b,0xf49ac1,0x39c8d8,0xe8963c].map(makeGhost);
+const respawnGhost=(gh,dist)=>{
+  const a=Math.random()*Math.PI*2;
+  gh.pos.set(PAC.pos.x+Math.cos(a)*dist,0,PAC.pos.z+Math.sin(a)*dist);
+  gh.pos.y=elevAtWorld(gh.pos.x,gh.pos.z);
+  gh.heading=Math.atan2(PAC.pos.z-gh.pos.z,PAC.pos.x-gh.pos.x);
+};
+const pacHUD=()=>{
+  $('#pacScore').textContent=PAC.score;
+  $('#pacLives').textContent='♥'.repeat(Math.max(0,PAC.lives))||'—';
+};
+const setPac=on=>{
+  if(on&&FLY.on)setFly(false);
+  PAC.on=on;pacman.group.visible=on;controls.enabled=!on;
+  ghosts.forEach(gh=>gh.group.visible=on);
+  $('#pac').classList.toggle('active',on);$('#pac').textContent=on?'Quit':'ᗧ Play';
+  $('#pacui').classList.toggle('on',on);
+  $('#help').textContent=on?'Eat the dots along the streets · big dots make ghosts edible · ← → or drag to steer':'Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night';
+  for(const c of S.chunks.values())if(c.dots&&c.dots.mesh)c.dots.mesh.visible=on;
+  if(on){
+    PAC.pos.set(controls.target.x,0,controls.target.z);
+    PAC.pos.y=elevAtWorld(PAC.pos.x,PAC.pos.z);
+    const d=new THREE.Vector3();camera.getWorldDirection(d);
+    PAC.heading=Math.atan2(d.z,d.x);PAC.turn=0;PAC.score=0;PAC.lives=3;PAC.fright=0;PAC.safe=2.5;
+    for(const c of S.chunks.values())if(c.eatenDots)c.eatenDots.clear();
+    rebuildVisible();
+    ghosts.forEach(gh=>respawnGhost(gh,170));
+    pacHUD();
+    toast('Waka waka — the streets are the maze!');
+  }else{
+    controls.target.set(PAC.pos.x,8,PAC.pos.z);
+    camera.position.set(PAC.pos.x+190,165,PAC.pos.z+220);controls.update();
+  }
+};
+const eatDots=()=>{
+  const cx=Math.round(PAC.pos.x/CHUNK),cz=Math.round(PAC.pos.z/CHUNK),m=new THREE.Matrix4();
+  let changed=false;
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+    const c=S.chunks.get(chunkKey(cx+dx,cz+dz));
+    if(!c||!c.dots||!c.dots.mesh.parent)continue;
+    c.dots.positions.forEach((p,i)=>{
+      if(c.eatenDots.has(dotKey(p)))return;
+      if(Math.hypot(p.x-PAC.pos.x,p.z-PAC.pos.z)>2.6)return;
+      c.eatenDots.add(dotKey(p));
+      m.makeScale(0,0,0);c.dots.mesh.setMatrixAt(i,m);c.dots.mesh.instanceMatrix.needsUpdate=true;
+      PAC.score+=p.pellet?50:10;changed=true;
+      if(p.pellet){PAC.fright=8;toast('Power pellet! Ghosts are frightened — get them!')}
+    });
+  }
+  if(changed)pacHUD();
+};
+const updatePac=dtMs=>{
+  if(!PAC.on)return;
+  const dt=Math.min(.08,Math.max(.001,dtMs/1000));
+  PAC.safe=Math.max(0,PAC.safe-dt);PAC.fright=Math.max(0,PAC.fright-dt);
+  PAC.heading+=PAC.turn*2.3*dt;
+  PAC.pos.x+=Math.cos(PAC.heading)*PAC.speed*dt;
+  PAC.pos.z+=Math.sin(PAC.heading)*PAC.speed*dt;
+  resolveBuildingHit(PAC.pos,1.4);
+  PAC.pos.y=elevAtWorld(PAC.pos.x,PAC.pos.z)+1.4;
+  pacman.group.position.copy(PAC.pos);
+  pacman.group.rotation.y=-PAC.heading;
+  const mouth=(Math.sin(performance.now()/90)*.5+.5)*.45+.04;
+  pacman.top.rotation.z=mouth;pacman.bottom.rotation.z=-mouth;
+  eatDots();
+  for(const gh of ghosts){
+    const toPac=Math.atan2(PAC.pos.z-gh.pos.z,PAC.pos.x-gh.pos.x);
+    const want=PAC.fright>0?toPac+Math.PI:toPac;
+    let dh=want-gh.heading;
+    while(dh>Math.PI)dh-=Math.PI*2;while(dh<-Math.PI)dh+=Math.PI*2;
+    gh.heading+=Math.max(-2*dt,Math.min(2*dt,dh));
+    const sp=PAC.fright>0?5.6:9.4;
+    gh.pos.x+=Math.cos(gh.heading)*sp*dt;
+    gh.pos.z+=Math.sin(gh.heading)*sp*dt;
+    if(resolveBuildingHit(gh.pos,1.3))gh.heading+=(Math.random()>.5?1:-1)*1.2;
+    gh.pos.y=elevAtWorld(gh.pos.x,gh.pos.z);
+    gh.group.position.set(gh.pos.x,gh.pos.y+Math.sin(performance.now()/300+gh.wob)*.18,gh.pos.z);
+    gh.group.rotation.y=-gh.heading;
+    for(const part of gh.parts)part.material=PAC.fright>0?ghostShared.fright:gh.mat;
+    const d=Math.hypot(gh.pos.x-PAC.pos.x,gh.pos.z-PAC.pos.z);
+    if(d<2.7&&PAC.safe<=0){
+      if(PAC.fright>0){PAC.score+=200;respawnGhost(gh,220);toast('Ghost eaten! +200');pacHUD()}
+      else{
+        PAC.lives--;PAC.safe=2.5;pacHUD();
+        ghosts.forEach(g2=>respawnGhost(g2,200));
+        if(PAC.lives<=0){toast(`Game over — final score ${PAC.score}`);setPac(false);return}
+        toast(`Caught! ${PAC.lives} ${PAC.lives===1?'life':'lives'} left`);
+      }
+    }
+  }
+  controls.target.set(PAC.pos.x,Math.max(2,PAC.pos.y),PAC.pos.z);
+  const back=26;
+  const desired=new THREE.Vector3(PAC.pos.x-Math.cos(PAC.heading)*back,PAC.pos.y+13,PAC.pos.z-Math.sin(PAC.heading)*back);
+  camera.position.lerp(desired,1-Math.pow(.002,dt));
+  camera.lookAt(PAC.pos.x,PAC.pos.y+2,PAC.pos.z);
+};
+window.GV6={FLY,PAC,S,poops,splats};
 
 const TIME_KEYS=[
   {h:0,sky:0x0a1526,hemi:.30,sunI:0,sunC:0x8fb4ff},
@@ -1051,6 +1392,7 @@ const applyTime=hours=>{
   sun.castShadow=sun.intensity>.15;
   const night=1-Math.min(1,sun.intensity/.6);
   for(const m of facadeList)m.emissiveIntensity=night*1.05;
+  horizonMat.color.set(new THREE.Color(0x7f9377).lerp(new THREE.Color(0x1a231e),night));
   shared.marking.color.set(new THREE.Color(0xe7dfbf).lerp(new THREE.Color(0x8d8672),night*.5));
   const hh=Math.floor(hours),mm=Math.round((hours-hh)*60);
   $('#timeread').textContent=`${String(hh%24).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
@@ -1063,6 +1405,7 @@ const updateURL=()=>{
 };
 const stream=time=>{
   if(time-S.lastStream<380)return;S.lastStream=time;
+  horizon.position.set(controls.target.x,-1.6,controls.target.z);
   const center=desiredChunks(),key=`${center.cx},${center.cz}`;
   if(key!==S.lastCenterKey){
     S.lastCenterKey=key;const geo=worldToGeo(controls.target.x,controls.target.z);
@@ -1149,6 +1492,9 @@ $('#fly').onclick=()=>setFly(!FLY.on);
 $('#spdUp').onclick=()=>setSpeed(FLY.speed+8);
 $('#spdDown').onclick=()=>setSpeed(FLY.speed-8);
 $('#pov').onclick=()=>setPov(!FLY.pov);
+$('#poop').onclick=dropPoop;
+$('#pac').onclick=()=>setPac(!PAC.on);
+$('#pacExit').onclick=()=>setPac(false);
 $('#share').onclick=async()=>{
   updateURL();
   try{await navigator.clipboard.writeText(location.href);toast('Link copied — it restores this exact spot and time of day')}
@@ -1163,8 +1509,8 @@ addEventListener('resize',()=>{
 });
 renderer.setAnimationLoop(time=>{
   const dt=time-(S.lastFrame||time);S.lastFrame=time;
-  if(!FLY.on)controls.update();
-  updateFlight(dt);stream(time);updateCompass();renderer.render(scene,camera);
+  if(!FLY.on&&!PAC.on)controls.update();
+  updateFlight(dt);updatePac(dt);updatePoops(dt);stream(time);updateCompass();renderer.render(scene,camera);
 });
 
 const params=new URLSearchParams(location.search);
