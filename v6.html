@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0a1720">
-<title>GeoVoxel v5 — Focal Streaming</title>
+<title>GeoVoxel v6 — Vector Terrain</title>
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#9fc3d4;font-family:system-ui,-apple-system,Segoe UI,sans-serif}canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .panel{position:fixed;z-index:20;top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));width:min(455px,calc(100vw - 20px));max-height:calc(100vh - 20px);overflow-y:auto;padding:13px;border-radius:17px;background:#07141df2;color:#eef8fb;box-shadow:0 18px 60px #00101880;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
@@ -14,7 +14,7 @@ h1{font-size:17px;margin:0;letter-spacing:.13em}h1 small{font-size:9px;letter-sp
 input,select,button,a.action{height:38px;border:0;border-radius:10px;font:inherit}
 input,select{width:100%;padding:0 9px;color:#142029;background:#eff6f8}select{flex:1}
 button,a.action{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;cursor:pointer;font-weight:800;color:#14200d;background:#bafd67;text-decoration:none;white-space:nowrap}
-button.alt,a.action.alt{color:#142029;background:#dae9ee}button.active{background:#78d8ff;color:#082033}button:disabled{opacity:.5}
+button.alt,a.action.alt{color:#142029;background:#dae9ee}button:disabled{opacity:.5}
 .coords{display:grid;grid-template-columns:1fr 1fr 42px;gap:7px}.options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .field{display:flex;flex-direction:column;gap:3px}.field label{font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:#8fa8b4}
 .timerow{display:grid;grid-template-columns:1fr 56px;gap:7px;align-items:center;margin-top:8px}
@@ -37,10 +37,10 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <body>
 <canvas id="view"></canvas>
 <section class="panel">
-  <h1>GEOVOXEL <small>V5</small></h1>
-  <p class="sub">Focal streaming: the world blocks in fast at the horizon, then detail fills inward band by band so the center is always sharpest. Drag to look around, right-drag or two-finger drag to travel.</p>
+  <h1>GEOVOXEL <small>V6</small></h1>
+  <p class="sub">Vector-tile streaming on real terrain: buildings, roads and water arrive as compact map tiles over elevation from global heightmaps. Detail still fills center-first through the bands.</p>
   <div class="row"><input id="search" placeholder="Search any place — city, street, landmark…" autocomplete="off"><button id="find">Find</button></div>
-  <div class="row"><select id="preset"><option value="45.5231,-122.6765">Portland, Oregon</option><option value="40.7411,-73.9897">Manhattan, New York</option><option value="34.0195,-118.4912">Santa Monica, California</option><option value="41.9028,12.4964">Rome, Italy</option><option value="35.6812,139.7671">Tokyo, Japan</option></select><button id="go">Start</button></div>
+  <div class="row"><select id="preset"><option value="45.5231,-122.6765">Portland, Oregon</option><option value="40.7411,-73.9897">Manhattan, New York</option><option value="34.0195,-118.4912">Santa Monica, California</option><option value="41.9028,12.4964">Rome, Italy</option><option value="35.6812,139.7671">Tokyo, Japan</option><option value="46.2044,6.1432">Geneva, Switzerland</option></select><button id="go">Start</button></div>
   <div class="coords row"><div class="field"><label>Latitude</label><input id="lat" value="45.5231" inputmode="decimal"></div><div class="field"><label>Longitude</label><input id="lon" value="-122.6765" inputmode="decimal"></div><button id="locate" class="alt" aria-label="Use my location">◎</button></div>
   <div class="options row"><div class="field"><label>Streaming</label><select id="radius"><option value="1">3 × 3 bands</option><option value="2" selected>5 × 5 bands</option><option value="3">7 × 7 bands</option></select></div><div class="field"><label>Near detail</label><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></div><div class="field"><label>Base voxel</label><select id="voxel"><option value="0">Exact near</option><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></div></div>
   <div class="timerow"><input id="time" type="range" min="0" max="24" step="0.25" value="10.5"><div id="timeread" class="timeread">10:30</div></div>
@@ -50,12 +50,12 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
   <div class="stats"><div class="stat"><strong id="loaded">0</strong>chunks</div><div class="stat"><strong id="queued">0</strong>queued</div><div class="stat"><strong id="features">0</strong>features</div><div class="stat"><strong id="source">—</strong>source</div></div>
   <div id="lodread" class="coordread">LOD: 0 near · 0 middle · 0 far</div>
   <div id="coords" class="coordread"></div>
-  <div class="coordread"><a href="./" style="color:#8fa8b4">← classic build</a> · <a href="v6.html" style="color:#bafd67">v6 vector terrain →</a> · map data © OpenStreetMap contributors</div>
+  <div class="coordread"><a href="v5.html" style="color:#8fa8b4">← v5 Overpass build</a> · data © OpenStreetMap contributors, OpenFreeMap · terrain: Mapzen/AWS</div>
 </section>
 <div class="compass"><div id="needle" class="needle"></div></div>
 <div id="help" class="help">Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night</div>
 <div id="toast" class="toast"></div>
-<div id="loading" class="loading"><div><h2>GEOVOXEL V5</h2><p>Loading the focal renderer…</p></div></div>
+<div id="loading" class="loading"><div><h2>GEOVOXEL V6</h2><p>Loading the terrain renderer…</p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
@@ -64,14 +64,11 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 const $=s=>document.querySelector(s),statusEl=$('#status'),loadingEl=$('#loading');
 if(!window.THREE){loadingEl.innerHTML='<div><h2>Could not load 3D engine</h2><p>Check the internet connection and reload.</p></div>';return}
 const MOBILE=/iPad|iPhone|Android/i.test(navigator.userAgent);
-const CHUNK=140,OVERLAP=7,CACHE_AGE=7*86400000,MAX_ACTIVE=MOBILE?2:3;
+const CHUNK=140,CACHE_AGE=7*86400000,MAX_ACTIVE=MOBILE?3:4;
 const LOD_LABEL=['near','middle','far'],LOD_SNAP=[0,3,8];
-const SERVERS=[
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
-];
+const TILEJSON_URL='https://tiles.openfreemap.org/planet';
+const TERRAIN_URL=(x,y)=>`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/13/${x}/${y}.png`;
+const TERRAIN_Z=13,TILE_PX=256;
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x9fc3d4);
@@ -111,8 +108,6 @@ const shared={
   water:new THREE.MeshStandardMaterial({color:0x69a9c3,roughness:.26,metalness:.04,transparent:true,opacity:.90,side:THREE.DoubleSide}),
   trunk:new THREE.MeshStandardMaterial({color:0x6f543b,roughness:1}),
   leaf:new THREE.MeshStandardMaterial({color:0x4e7952,roughness:1,flatShading:true}),
-  lamp:new THREE.MeshStandardMaterial({color:0x4b5357,roughness:.8,metalness:.15}),
-  lampGlow:new THREE.MeshBasicMaterial({color:0xffe6a5}),
   cab:new THREE.MeshStandardMaterial({color:0x9db2b8,roughness:.35,metalness:.12}),
   car:[0xb74f47,0x3f6e94,0xd2c7a6,0x353a3d,0x8b5a78,0xc28a3c].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.6,metalness:.12})),
   road:{},area:{},building:{},roof:{}
@@ -133,10 +128,10 @@ windowTexture.magFilter=THREE.NearestFilter;windowTexture.minFilter=THREE.Linear
 const windowMat=new THREE.MeshBasicMaterial({map:windowTexture,transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide});
 
 const S={
-  origin:{lat:45.5231,lon:-122.6765},
+  origin:{lat:45.5231,lon:-122.6765},baseElev:null,tileTemplate:null,tileJsonPromise:null,
   chunks:new Map(),queue:[],active:0,generation:0,totalFeatures:0,
   lastStream:0,lastCenterKey:'',toastTimer:null,
-  dbPromise:null,requestCounter:0,urlTimer:0
+  dbPromise:null,vectorTiles:new Map(),terrainTiles:new Map(),lastNet:false
 };
 
 const toast=text=>{
@@ -241,19 +236,313 @@ const boundsOf=pts=>{
   return{minX,maxX,minZ,maxZ,x:(minX+maxX)/2,z:(minZ+maxZ)/2,w:maxX-minX,d:maxZ-minZ};
 };
 const lodForOffset=(dx,dz)=>{const d=Math.hypot(dx,dz);return d<.5?0:d<1.9?1:2};
-const geometries=el=>{
-  if(el.type==='way'&&el.geometry)return[{geometry:el.geometry,id:el.id,tags:el.tags||{}}];
-  if(el.type==='relation'&&el.members)return el.members
-    .filter(m=>m.type==='way'&&m.geometry&&(!m.role||m.role==='outer'))
-    .map((m,i)=>({geometry:m.geometry,id:`${el.id}-${i}`,tags:el.tags||{}}));
-  return[];
+
+const lonToTileX=(lon,z)=>Math.floor((lon+180)/360*Math.pow(2,z));
+const latToTileY=(lat,z)=>{
+  const rad=lat*Math.PI/180;
+  return Math.floor((1-Math.log(Math.tan(rad)+1/Math.cos(rad))/Math.PI)/2*Math.pow(2,z));
+};
+const tileRange=(gb,z)=>{
+  const x0=lonToTileX(gb.lonMin,z),x1=lonToTileX(gb.lonMax,z);
+  const y0=latToTileY(gb.latMax,z),y1=latToTileY(gb.latMin,z);
+  const out=[];
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)out.push({x,y});
+  return out;
+};
+const chunkGeoBounds=c=>{
+  const b=chunkBounds(c);
+  const sw=worldToGeo(b.minX,b.minZ),ne=worldToGeo(b.maxX,b.maxZ);
+  return{latMin:Math.min(sw.lat,ne.lat),latMax:Math.max(sw.lat,ne.lat),lonMin:Math.min(sw.lon,ne.lon),lonMax:Math.max(sw.lon,ne.lon)};
+};
+
+const pbfVarint=(view,s)=>{let r=0,shift=0,b;do{b=view.getUint8(s.p++);r+=(b&127)*Math.pow(2,shift);shift+=7}while(b&128);return r};
+const pbfSkip=(view,s,wt)=>{if(wt===0)pbfVarint(view,s);else if(wt===1)s.p+=8;else if(wt===2)s.p+=pbfVarint(view,s);else if(wt===5)s.p+=4};
+const textDecoder=new TextDecoder();
+const pbfString=(view,s,len)=>{
+  const bytes=new Uint8Array(view.buffer,view.byteOffset+s.p,len);s.p+=len;
+  return textDecoder.decode(bytes);
+};
+const zig=v=>v%2?-(v+1)/2:v/2;
+const decodeValue=(view,start,end)=>{
+  const s={p:start};
+  while(s.p<end){
+    const tag=pbfVarint(view,s),field=tag>>3,wt=tag&7;
+    if(field===1&&wt===2){const len=pbfVarint(view,s);return pbfString(view,s,len)}
+    if(field===2&&wt===5){const v=view.getFloat32(s.p,true);s.p+=4;return v}
+    if(field===3&&wt===1){const v=view.getFloat64(s.p,true);s.p+=8;return v}
+    if(field===4&&wt===0)return pbfVarint(view,s);
+    if(field===5&&wt===0)return pbfVarint(view,s);
+    if(field===6&&wt===0)return zig(pbfVarint(view,s));
+    if(field===7&&wt===0)return!!pbfVarint(view,s);
+    pbfSkip(view,s,wt);
+  }
+  return null;
+};
+const decodeGeometry=raw=>{
+  const rings=[];let ring=null,x=0,y=0,i=0;
+  while(i<raw.length){
+    const cmd=raw[i++],op=cmd&7,count=Math.floor(cmd/8);
+    if(op===1){
+      for(let k=0;k<count;k++){
+        if(ring&&ring.length)rings.push(ring);
+        ring=[];x+=zig(raw[i++]);y+=zig(raw[i++]);ring.push([x,y]);
+      }
+    }else if(op===2){
+      for(let k=0;k<count;k++){x+=zig(raw[i++]);y+=zig(raw[i++]);ring.push([x,y])}
+    }else if(op===7){
+      if(ring&&ring.length)ring.push(ring[0].slice());
+    }else break;
+  }
+  if(ring&&ring.length)rings.push(ring);
+  return rings;
+};
+const decodeFeature=(view,start,end,keys,values)=>{
+  const s={p:start},f={id:0,type:0,props:{},geom:null};
+  while(s.p<end){
+    const tag=pbfVarint(view,s),field=tag>>3,wt=tag&7;
+    if(field===1&&wt===0)f.id=pbfVarint(view,s);
+    else if(field===2&&wt===2){
+      const len=pbfVarint(view,s),stop=s.p+len;
+      while(s.p<stop){const k=pbfVarint(view,s),v=pbfVarint(view,s);if(keys[k]!=null)f.props[keys[k]]=values[v]}
+    }
+    else if(field===3&&wt===0)f.type=pbfVarint(view,s);
+    else if(field===4&&wt===2){
+      const len=pbfVarint(view,s),stop=s.p+len,raw=[];
+      while(s.p<stop)raw.push(pbfVarint(view,s));
+      f.geom=raw;
+    }
+    else pbfSkip(view,s,wt);
+  }
+  return f;
+};
+const decodeMVT=buffer=>{
+  const view=new DataView(buffer),s={p:0},layers={};
+  while(s.p<buffer.byteLength){
+    const tag=pbfVarint(view,s),field=tag>>3,wt=tag&7;
+    if(field===3&&wt===2){
+      const len=pbfVarint(view,s),stop=s.p+len;
+      const layer={name:'',extent:4096,featureRanges:[],keys:[],values:[]};
+      while(s.p<stop){
+        const t2=pbfVarint(view,s),f2=t2>>3,w2=t2&7;
+        if(f2===1&&w2===2){const l=pbfVarint(view,s);layer.name=pbfString(view,s,l)}
+        else if(f2===2&&w2===2){const l=pbfVarint(view,s);layer.featureRanges.push([s.p,s.p+l]);s.p+=l}
+        else if(f2===3&&w2===2){const l=pbfVarint(view,s);layer.keys.push(pbfString(view,s,l))}
+        else if(f2===4&&w2===2){const l=pbfVarint(view,s);layer.values.push(decodeValue(view,s.p,s.p+l));s.p+=l}
+        else if(f2===5&&w2===0)layer.extent=pbfVarint(view,s);
+        else pbfSkip(view,s,w2);
+      }
+      layer.features=layer.featureRanges.map(([a,b])=>decodeFeature(view,a,b,layer.keys,layer.values));
+      layers[layer.name]=layer;
+    }else pbfSkip(view,s,wt);
+  }
+  return layers;
+};
+
+const signedArea=ring=>{let a=0;for(let i=0,j=ring.length-1;i<ring.length;j=i++)a+=(ring[j][0]-ring[i][0])*(ring[j][1]+ring[i][1]);return a/2};
+const ROAD_CLASS={motorway:'motorway',trunk:'trunk',primary:'primary',secondary:'secondary',tertiary:'tertiary',minor:'residential',service:'service',track:'service',raceway:'service',busway:'service',path:'footway',pier:'footway'};
+const areaTagsFor=(layerName,props)=>{
+  const cls=props.class||'';
+  if(layerName==='water')return{natural:'water'};
+  if(layerName==='park')return{leisure:'park'};
+  if(layerName==='landcover'){
+    if(cls==='wood'||cls==='forest'||props.subclass==='forest')return{natural:'wood'};
+    if(cls==='grass'||cls==='grassland'||cls==='meadow')return{landuse:'grass'};
+    return null;
+  }
+  if(layerName==='landuse'){
+    if(['commercial','retail'].includes(cls))return{landuse:cls};
+    if(cls==='industrial')return{landuse:'industrial'};
+    if(cls==='cemetery')return{landuse:'cemetery'};
+    if(['pitch','stadium','playground'].includes(cls))return{leisure:'pitch'};
+    return null;
+  }
+  return null;
+};
+const parseGroups=(layers,z,x,y)=>{
+  const n=Math.pow(2,z);
+  const toGeo=(px,py,extent)=>({
+    lon:(x+px/extent)/n*360-180,
+    lat:Math.atan(Math.sinh(Math.PI*(1-2*(y+py/extent)/n)))*180/Math.PI
+  });
+  const groups={buildings:[],roads:[],rails:[],waterLines:[],areas:[]};
+  const polyItems=(layer,tagsFor)=>{
+    const out=[];
+    for(const f of layer.features){
+      if(f.type!==3||!f.geom)continue;
+      const tags=tagsFor(f.props);if(!tags)continue;
+      const rings=decodeGeometry(f.geom);if(!rings.length)continue;
+      let outerSign=0,best=0;
+      for(const r of rings){const a=signedArea(r);if(Math.abs(a)>best){best=Math.abs(a);outerSign=Math.sign(a)}}
+      rings.forEach((r,ri)=>{
+        if(r.length<4||Math.sign(signedArea(r))!==outerSign)return;
+        const pts=r.map(([px,py])=>toGeo(px,py,layer.extent));
+        let latSum=0,lonSum=0;
+        for(const p of pts){latSum+=p.lat;lonSum+=p.lon}
+        out.push({pts,tags,id:(f.id||hash(layer.name+px0(r)))+':'+ri,c:{lat:latSum/pts.length,lon:lonSum/pts.length}});
+      });
+    }
+    return out;
+  };
+  const px0=r=>r[0][0]+','+r[0][1];
+  const bl=layers.building;
+  if(bl)groups.buildings=polyItems(bl,p=>({
+    building:'yes',
+    height:p.render_height!=null?String(p.render_height):undefined,
+    min_height:p.render_min_height!=null?String(p.render_min_height):undefined,
+    'building:colour':typeof p.colour==='string'?p.colour:undefined
+  }));
+  const tr=layers.transportation;
+  if(tr)for(const f of tr.features){
+    if(f.type!==2||!f.geom)continue;
+    const cls=f.props.class||'';
+    const lines=decodeGeometry(f.geom).map(line=>line.map(([px,py])=>toGeo(px,py,tr.extent)));
+    if(cls==='rail'||cls==='transit'){
+      for(const pts of lines)groups.rails.push({pts,tags:{railway:'rail'},id:f.id||hash('r'+px0(f.geom))});
+    }else if(ROAD_CLASS[cls]){
+      const tags={highway:ROAD_CLASS[cls]};
+      if(f.props.brunnel==='bridge')tags.bridge='yes';
+      if(f.props.layer!=null)tags.layer=String(f.props.layer);
+      for(const pts of lines)groups.roads.push({pts,tags,id:f.id||hash('h'+px0(f.geom))});
+    }
+  }
+  const ww=layers.waterway;
+  if(ww)for(const f of ww.features){
+    if(f.type!==2||!f.geom)continue;
+    const lines=decodeGeometry(f.geom).map(line=>line.map(([px,py])=>toGeo(px,py,ww.extent)));
+    for(const pts of lines)groups.waterLines.push({pts,tags:{waterway:f.props.class||'stream'},id:f.id||hash('w'+px0(f.geom))});
+  }
+  for(const name of['water','park','landcover','landuse']){
+    const layer=layers[name];if(!layer)continue;
+    groups.areas.push(...polyItems(layer,p=>areaTagsFor(name,p)));
+  }
+  return groups;
+};
+
+const openDB=()=>{
+  if(!('indexedDB'in window))return Promise.reject(new Error('IndexedDB unavailable'));
+  if(S.dbPromise)return S.dbPromise;
+  S.dbPromise=new Promise((resolve,reject)=>{
+    const req=indexedDB.open('geovoxel-v6',1);
+    req.onupgradeneeded=()=>req.result.createObjectStore('tiles');
+    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+  });
+  return S.dbPromise;
+};
+const cacheGet=async key=>{
+  try{
+    const db=await openDB();
+    return await new Promise((resolve,reject)=>{
+      const req=db.transaction('tiles').objectStore('tiles').get(key);
+      req.onsuccess=()=>{const v=req.result;resolve(v&&Date.now()-v.time<CACHE_AGE?v.data:undefined)};
+      req.onerror=()=>reject(req.error);
+    });
+  }catch{return undefined}
+};
+const cachePut=async(key,data)=>{
+  try{
+    const db=await openDB();
+    await new Promise((resolve,reject)=>{
+      const req=db.transaction('tiles','readwrite').objectStore('tiles').put({time:Date.now(),data},key);
+      req.onsuccess=()=>resolve();req.onerror=()=>reject(req.error);
+    });
+  }catch{}
+};
+
+const ensureTileJSON=()=>{
+  if(S.tileTemplate)return Promise.resolve(S.tileTemplate);
+  if(!S.tileJsonPromise)S.tileJsonPromise=(async()=>{
+    const r=await fetch(TILEJSON_URL,{headers:{Accept:'application/json'}});
+    if(!r.ok)throw new Error(`TileJSON HTTP ${r.status}`);
+    const j=await r.json();
+    if(!j.tiles||!j.tiles[0])throw new Error('TileJSON missing tiles');
+    S.tileTemplate=j.tiles[0];
+    return S.tileTemplate;
+  })().catch(e=>{S.tileJsonPromise=null;throw e});
+  return S.tileJsonPromise;
+};
+const getVectorTile=async(z,x,y)=>{
+  const key=`v:${z}/${x}/${y}`;
+  if(S.vectorTiles.has(key))return S.vectorTiles.get(key);
+  const stored=await cacheGet(key);
+  let buffer=stored;
+  if(buffer===undefined){
+    const template=await ensureTileJSON();
+    const url=template.replace('{z}',z).replace('{x}',x).replace('{y}',y);
+    const r=await fetch(url);
+    if(r.status===404||r.status===204)buffer=null;
+    else if(!r.ok)throw new Error(`Tile HTTP ${r.status}`);
+    else buffer=await r.arrayBuffer();
+    S.lastNet=true;
+    cachePut(key,buffer);
+  }
+  const parsed=buffer&&buffer.byteLength?parseGroups(decodeMVT(buffer),z,x,y):null;
+  S.vectorTiles.set(key,parsed);
+  if(S.vectorTiles.size>140){const first=S.vectorTiles.keys().next().value;S.vectorTiles.delete(first)}
+  return parsed;
+};
+const decodeTerrain=async blob=>{
+  const bitmap=await createImageBitmap(blob);
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=TILE_PX;
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(bitmap,0,0,TILE_PX,TILE_PX);
+  const img=ctx.getImageData(0,0,TILE_PX,TILE_PX).data;
+  const out=new Float32Array(TILE_PX*TILE_PX);
+  for(let i=0;i<out.length;i++){
+    out[i]=img[i*4]*256+img[i*4+1]+img[i*4+2]/256-32768;
+  }
+  return out;
+};
+const getTerrainTile=async(x,y)=>{
+  const key=`t:${x}/${y}`;
+  if(S.terrainTiles.has(key))return S.terrainTiles.get(key);
+  const stored=await cacheGet(key);
+  let blob=stored;
+  if(blob===undefined){
+    const r=await fetch(TERRAIN_URL(x,y));
+    if(!r.ok)blob=null;
+    else blob=await r.blob();
+    S.lastNet=true;
+    cachePut(key,blob);
+  }
+  const data=blob?await decodeTerrain(blob).catch(()=>null):null;
+  S.terrainTiles.set(key,data);
+  if(S.terrainTiles.size>120){const first=S.terrainTiles.keys().next().value;S.terrainTiles.delete(first)}
+  return data;
+};
+const elevationAbs=(lat,lon)=>{
+  const n=Math.pow(2,TERRAIN_Z);
+  const fx=(lon+180)/360*n;
+  const rad=lat*Math.PI/180;
+  const fy=(1-Math.log(Math.tan(rad)+1/Math.cos(rad))/Math.PI)/2*n;
+  const tx=Math.floor(fx),ty=Math.floor(fy);
+  const data=S.terrainTiles.get(`t:${tx}/${ty}`);
+  if(!data)return 0;
+  const px=Math.min(TILE_PX-1.001,Math.max(0,(fx-tx)*TILE_PX-.5));
+  const py=Math.min(TILE_PX-1.001,Math.max(0,(fy-ty)*TILE_PX-.5));
+  const x0=Math.floor(px),y0=Math.floor(py),dx=px-x0,dy=py-y0;
+  const at=(xx,yy)=>data[yy*TILE_PX+xx];
+  return at(x0,y0)*(1-dx)*(1-dy)+at(x0+1,y0)*dx*(1-dy)+at(x0,y0+1)*(1-dx)*dy+at(x0+1,y0+1)*dx*dy;
+};
+const relElev=(lat,lon)=>elevationAbs(lat,lon)-(S.baseElev||0);
+const elevAtWorld=(x,z)=>{const g=worldToGeo(x,z);return relElev(g.lat,g.lon)};
+
+const addArea=(group,pts,style,lod)=>{
+  const shape=makeShape(pts);if(!shape)return false;
+  try{
+    const geo=new THREE.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
+    const mesh=new THREE.Mesh(geo,style.water?shared.water:areaMat(style.color));
+    const c=centroid(pts);
+    mesh.position.y=elevAtWorld(c.x,c.z)+style.y+.05;
+    mesh.receiveShadow=lod<2;group.add(mesh);return true;
+  }catch{return false}
 };
 const areaStyle=t=>{
-  if(t.natural==='water'||['reservoir','basin'].includes(t.landuse))return{color:0x69a9c3,y:.025,water:true,trees:0};
-  if(t.natural==='wood'||t.landuse==='forest')return{color:0x547c58,y:.018,trees:1};
-  if(['park','garden'].includes(t.leisure))return{color:0x6d9870,y:.019,trees:.45};
+  if(t.natural==='water')return{color:0x69a9c3,y:.025,water:true,trees:0};
+  if(t.natural==='wood')return{color:0x547c58,y:.018,trees:1};
+  if(t.leisure==='park')return{color:0x6d9870,y:.019,trees:.45};
   if(t.leisure==='pitch')return{color:0x72906b,y:.02,trees:0};
-  if(['grass','meadow','recreation_ground','village_green','cemetery'].includes(t.landuse))return{color:0x76956d,y:.017,trees:.18};
+  if(['grass','cemetery'].includes(t.landuse))return{color:0x76956d,y:.017,trees:.18};
   if(['commercial','retail'].includes(t.landuse))return{color:0x9b8f82,y:.014,trees:0};
   if(t.landuse==='industrial')return{color:0x8c8a82,y:.014,trees:0};
   return{color:0x829775,y:.012,trees:0};
@@ -271,88 +560,27 @@ const roadStyle=(t,lod)=>{
   if(lod===2){style.walk=0;style.mark=0;style.cars=0;style.width=Math.max(4,Math.round(style.width/3)*3)}
   return style;
 };
-
-const addArea=(group,pts,style,lod)=>{
-  const shape=makeShape(pts);if(!shape)return false;
-  try{
-    const geo=new THREE.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
-    const mesh=new THREE.Mesh(geo,style.water?shared.water:areaMat(style.color));
-    mesh.position.y=style.y;mesh.receiveShadow=lod<2;group.add(mesh);return true;
-  }catch{return false}
-};
 const buildingHeight=(t,id,lod)=>{
   let h=parseMeters(t.height);
-  if(!Number.isFinite(h)){const levels=parseFloat(t['building:levels']);if(Number.isFinite(levels))h=levels*3.15}
-  if(!Number.isFinite(h)){
-    if(['garage','garages','shed','roof','carport'].includes(t.building))h=3.2;
-    else{const r=hash(id)%1000/1000;h=5.5+Math.pow(r,1.55)*27}
-  }
-  h=Math.max(3,Math.min(180,h));
+  if(!Number.isFinite(h)){const r=hash(id)%1000/1000;h=5.5+Math.pow(r,1.55)*27}
+  h=Math.max(3,Math.min(280,h));
   if(lod===1)h=Math.round(h/3)*3;
   if(lod===2)h=Math.max(8,Math.round(h/8)*8);
   return h;
 };
 const minHeight=t=>{
-  let h=parseMeters(t.min_height);
-  if(Number.isFinite(h))return Math.max(0,h);
-  const level=parseFloat(t['building:min_level']);
-  return Number.isFinite(level)?level*3.15:0;
+  const h=parseMeters(t.min_height);
+  return Number.isFinite(h)?Math.max(0,h):0;
 };
 const buildingColor=(t,id,lod)=>{
-  const name=(t['building:material']||'').toLowerCase(),explicit=t['building:colour']||t['building:color'];
+  const explicit=t['building:colour'];
   let color;
   if(explicit&&/^#?[0-9a-f]{6}$/i.test(explicit))color=parseInt(explicit.replace('#',''),16);
-  else if(name.includes('brick'))color=0xb97961;
-  else if(name.includes('glass'))color=0x91adb4;
-  else if(name.includes('concrete'))color=0xb8b6ae;
-  else if(name.includes('wood'))color=0xb18c66;
   else color=buildingPalette[hash(id)%buildingPalette.length];
   if(lod===2){const c=new THREE.Color(color);c.lerp(new THREE.Color(0xb9b29f),.28);return c.getHex()}
   return color;
 };
-const roofColor=(t,id)=>{
-  const explicit=t['roof:colour']||t['roof:color'];
-  if(explicit&&/^#?[0-9a-f]{6}$/i.test(explicit))return parseInt(explicit.replace('#',''),16);
-  const name=(t['roof:material']||'').toLowerCase();
-  if(name.includes('tile'))return 0x8e5845;
-  if(name.includes('metal'))return 0x6e7778;
-  if(name.includes('slate'))return 0x4e565d;
-  return[0x77786f,0x806b5b,0x666e70,0x8b7562][hash(id+'r')%4];
-};
-const addShapedRoof=(group,pts,b,y,color,shapeTag)=>{
-  if(b.w<3||b.d<3)return false;
-  const rh=Math.min(5,Math.max(1.5,Math.min(b.w,b.d)*.28));
-  if(['pyramidal','hipped','dome','onion'].includes(shapeTag)){
-    const geo=shapeTag==='dome'
-      ?new THREE.SphereGeometry(1,10,5,0,Math.PI*2,0,Math.PI/2)
-      :new THREE.ConeGeometry(1,1,4);
-    const mesh=new THREE.Mesh(geo,roofMat(color));
-    mesh.position.set(b.x,y+(shapeTag==='dome'?0:rh/2),b.z);
-    mesh.scale.set(b.w*.55,rh,b.d*.55);
-    mesh.rotation.y=Math.PI/4;group.add(mesh);return true;
-  }
-  if(!['gabled','gambrel','round','saltbox'].includes(shapeTag))return false;
-  const alongX=b.w>=b.d,L=alongX?b.w:b.d,Sw=alongX?b.d:b.w;
-  const p=[[-L/2,0,-Sw/2],[L/2,0,-Sw/2],[-L/2,0,Sw/2],[L/2,0,Sw/2],[-L/2,rh,0],[L/2,rh,0]];
-  const idx=[0,1,5,0,5,4,2,4,5,2,5,3,0,4,2,1,3,5,0,2,3,0,3,1];
-  const pos=[];for(const i of idx)pos.push(...p[i]);
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-  geo.computeVertexNormals();
-  const mesh=new THREE.Mesh(geo,roofMat(color));
-  mesh.position.set(b.x,y,b.z);
-  if(!alongX)mesh.rotation.y=Math.PI/2;
-  group.add(mesh);return true;
-};
-const addRoof=(group,shape,pts,b,tags,id,y)=>{
-  const shapeTag=(tags['roof:shape']||'flat').toLowerCase(),color=roofColor(tags,id);
-  if(addShapedRoof(group,pts,b,y,color,shapeTag))return;
-  try{
-    const geo=new THREE.ShapeGeometry(shape);geo.rotateX(-Math.PI/2);
-    const mesh=new THREE.Mesh(geo,roofMat(color));
-    mesh.position.y=y+.025;group.add(mesh);
-  }catch{}
-};
+const roofColor=id=>[0x77786f,0x806b5b,0x666e70,0x8b7562][hash(id+'r')%4];
 const addWindowWalls=(group,pts,base,height)=>{
   if(Number($('#detail').value)<2||height<8)return;
   for(let i=0;i<Math.min(pts.length-1,8);i++){
@@ -364,90 +592,109 @@ const addWindowWalls=(group,pts,base,height)=>{
     mesh.rotation.y=Math.atan2(-dz,dx);group.add(mesh);
   }
 };
-const addRoofUnit=(group,pts,b,height,id)=>{
-  if(polygonArea(pts)<180||height<12)return;
-  const c=centroid(pts),r=rng(id+'unit'),unit=2.2+r()*2.8,unitH=1.2+r()*1.8;
-  const box=new THREE.Mesh(new THREE.BoxGeometry(unit*1.5,unitH,unit),roofMat(0x686f6d));
-  box.position.set(c.x,height+unitH/2,c.z);box.castShadow=true;group.add(box);
-};
 const addBuilding=(group,pts,tags,id,lod)=>{
   if(pts.length<4)return false;
   const b=boundsOf(pts);if(b.w<1.5||b.d<1.5)return false;
   const height=buildingHeight(tags,id,lod),color=buildingColor(tags,id,lod);
+  const eC=elevAtWorld(b.x,b.z);
   if(lod===2){
     const w=Math.max(8,Math.round(b.w/8)*8),d=Math.max(8,Math.round(b.d/8)*8);
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,height,d),buildingMat(color));
-    mesh.position.set(snapValue(b.x,2),height/2,snapValue(b.z,2));
+    mesh.position.set(snapValue(b.x,2),eC+height/2,snapValue(b.z,2));
     group.add(mesh);return true;
   }
   const shape=makeShape(pts);if(!shape)return false;
-  const base=lod===0?minHeight(tags):0;
+  const samples=[eC,elevAtWorld(b.minX,b.minZ),elevAtWorld(b.maxX,b.minZ),elevAtWorld(b.minX,b.maxZ),elevAtWorld(b.maxX,b.maxZ)];
+  const eMin=Math.min(...samples),eMax=Math.max(...samples);
+  const minH=minHeight(tags);
+  const skirt=minH>0?0:1.4+(eMax-eMin);
+  const base=eMin+minH;
   try{
-    const geo=new THREE.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false,steps:1,curveSegments:1});
+    const geo=new THREE.ExtrudeGeometry(shape,{depth:height+skirt,bevelEnabled:false,steps:1,curveSegments:1});
     geo.rotateX(-Math.PI/2);
-    if(base)geo.translate(0,base,0);
+    geo.translate(0,base-skirt,0);
     geo.computeVertexNormals();
     const mesh=new THREE.Mesh(geo,buildingMat(color));
     mesh.receiveShadow=true;mesh.castShadow=lod===0;group.add(mesh);
+    const top=base+height;
     if(lod===0){
       if(Number($('#detail').value)===2){
         const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),shared.edge);
         group.add(edges);
-        addRoofUnit(group,pts,b,base+height,id);
       }
-      addRoof(group,shape,pts,b,tags,id,base+height);
+      try{
+        const rg=new THREE.ShapeGeometry(shape);rg.rotateX(-Math.PI/2);
+        const rm=new THREE.Mesh(rg,roofMat(roofColor(id)));
+        rm.position.y=top+.025;group.add(rm);
+      }catch{}
       addWindowWalls(group,pts,base,height);
     }else{
-      const cap=new THREE.Mesh(new THREE.BoxGeometry(Math.max(2,b.w*.88),.35,Math.max(2,b.d*.88)),roofMat(roofColor(tags,id)));
-      cap.position.set(b.x,height+.18,b.z);group.add(cap);
+      const cap=new THREE.Mesh(new THREE.BoxGeometry(Math.max(2,b.w*.88),.35,Math.max(2,b.d*.88)),roofMat(roofColor(id)));
+      cap.position.set(b.x,top+.18,b.z);group.add(cap);
     }
     return true;
   }catch{return false}
 };
-const addSegmentBox=(group,a,b,width,mat,y=.07,height=.11)=>{
-  const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.25)return null;
+const addSegmentBox=(group,a,b,width,mat,lift=.07,height=.11)=>{
+  const dx=b.x-a.x,dz=b.z-a.z,dy=(b.y||0)-(a.y||0);
+  const flat=Math.hypot(dx,dz);if(flat<.25)return null;
+  const len=Math.hypot(flat,dy);
   const mesh=new THREE.Mesh(new THREE.BoxGeometry(len,height,width),mat);
-  mesh.position.set((a.x+b.x)/2,y,(a.z+b.z)/2);mesh.rotation.y=-Math.atan2(dz,dx);
+  mesh.position.set((a.x+b.x)/2,((a.y||0)+(b.y||0))/2+lift,(a.z+b.z)/2);
+  mesh.rotation.order='YZX';
+  mesh.rotation.y=-Math.atan2(dz,dx);
+  mesh.rotation.z=Math.atan2(dy,flat);
   mesh.receiveShadow=true;group.add(mesh);
-  return{len,dx:dx/len,dz:dz/len,midX:mesh.position.x,midZ:mesh.position.z};
+  return{len:flat,dx:dx/flat,dz:dz/flat,midX:mesh.position.x,midZ:mesh.position.z};
 };
+const draped=(x,z)=>({x,z,y:elevAtWorld(x,z)});
 const renderRoad=(group,pts,tags,bounds,lod,carList)=>{
   const style=roadStyle(tags,lod),layer=parseFloat(tags.layer)||0;
-  const y=tags.bridge?1.1+layer*.55:.07+layer*.12;let rendered=0;
+  const lift=tags.bridge?1.1+layer*.55:.07+Math.max(0,layer)*.12;
+  const maxStep=lod===0?26:60;
+  let rendered=0;
   for(let i=1;i<pts.length;i++){
-    const a=pts[i-1],b=pts[i],mx=(a.x+b.x)/2,mz=(a.z+b.z)/2;
-    if(!inBounds(mx,mz,bounds,3))continue;
-    if(style.walk&&lod===0)addSegmentBox(group,a,b,style.width+3.2*style.walk,shared.sidewalk,y-.035,.09);
-    const seg=addSegmentBox(group,a,b,style.width,roadMat(style.color),y,.12);if(!seg)continue;
-    rendered++;
-    if(style.mark&&lod===0&&Number($('#detail').value)>0){
-      const dash=5,gap=5,n=Math.floor(seg.len/(dash+gap));
-      for(let j=0;j<n;j++){
-        const off=(j+.5)*(dash+gap)-seg.len/2;
-        const c={x:seg.midX+seg.dx*off,z:seg.midZ+seg.dz*off};
-        const p1={x:c.x-seg.dx*dash/2,z:c.z-seg.dz*dash/2},p2={x:c.x+seg.dx*dash/2,z:c.z+seg.dz*dash/2};
-        addSegmentBox(group,p1,p2,.18,shared.marking,y+.07,.035);
+    const A=pts[i-1],B=pts[i];
+    const segLen=Math.hypot(B.x-A.x,B.z-A.z);if(segLen<.25)continue;
+    const steps=Math.max(1,Math.ceil(segLen/maxStep));
+    for(let st=0;st<steps;st++){
+      const t0=st/steps,t1=(st+1)/steps;
+      const a=draped(A.x+(B.x-A.x)*t0,A.z+(B.z-A.z)*t0);
+      const b=draped(A.x+(B.x-A.x)*t1,A.z+(B.z-A.z)*t1);
+      const mx=(a.x+b.x)/2,mz=(a.z+b.z)/2;
+      if(!inBounds(mx,mz,bounds,3))continue;
+      if(style.walk&&lod===0)addSegmentBox(group,a,b,style.width+3.2*style.walk,shared.sidewalk,lift-.035,.09);
+      const seg=addSegmentBox(group,a,b,style.width,roadMat(style.color),lift,.12);if(!seg)continue;
+      rendered++;
+      if(style.mark&&lod===0&&Number($('#detail').value)>0&&seg.len>10){
+        const dash=5,gap=5,count=Math.floor(seg.len/(dash+gap));
+        for(let j=0;j<count;j++){
+          const off=(j+.5)*(dash+gap)-seg.len/2;
+          const cx=seg.midX+seg.dx*off,cz=seg.midZ+seg.dz*off;
+          const p1=draped(cx-seg.dx*dash/2,cz-seg.dz*dash/2),p2=draped(cx+seg.dx*dash/2,cz+seg.dz*dash/2);
+          addSegmentBox(group,p1,p2,.18,shared.marking,lift+.07,.035);
+        }
       }
-    }
-    if(style.cars&&lod===0&&Number($('#detail').value)===2&&seg.len>18){
-      const r=rng((tags.name||'road')+i+Math.round(mx));
-      if(r()<style.cars*.28)carList.push({
-        x:mx+seg.dx*(r()-.5)*seg.len*.55,z:mz+seg.dz*(r()-.5)*seg.len*.55,
-        angle:-Math.atan2(seg.dz,seg.dx),seed:r()
-      });
+      if(style.cars&&lod===0&&Number($('#detail').value)===2&&seg.len>18){
+        const r=rng('car'+i+Math.round(mx));
+        if(r()<style.cars*.28)carList.push({
+          x:mx+seg.dx*(r()-.5)*seg.len*.55,z:mz+seg.dz*(r()-.5)*seg.len*.55,
+          angle:-Math.atan2(seg.dz,seg.dx),seed:r()
+        });
+      }
     }
   }
   return rendered;
 };
 const addCars=(group,cars,lod)=>{
-  if(!cars.length||lod!==0||Number($('#detail').value)===0)return;
-  const n=Math.min(cars.length,Number($('#detail').value)===2?28:14);
+  if(!cars.length||lod!==0||Number($('#detail').value)!==2)return;
+  const n=Math.min(cars.length,28);
   for(let i=0;i<n;i++){
-    const c=cars[i];
+    const c=cars[i],e=elevAtWorld(c.x,c.z);
     const body=new THREE.Mesh(new THREE.BoxGeometry(3.8,1.05,1.75),shared.car[Math.floor(c.seed*shared.car.length)%shared.car.length]);
-    body.position.set(c.x,.68,c.z);body.rotation.y=c.angle;body.castShadow=true;group.add(body);
+    body.position.set(c.x,e+.68,c.z);body.rotation.y=c.angle;body.castShadow=true;group.add(body);
     const cab=new THREE.Mesh(new THREE.BoxGeometry(1.8,.65,1.55),shared.cab);
-    cab.position.set(c.x,1.4,c.z);cab.rotation.y=c.angle;group.add(cab);
+    cab.position.set(c.x,e+1.4,c.z);cab.rotation.y=c.angle;group.add(cab);
   }
 };
 const scatterTrees=(list,pts,bounds,id,density,lod)=>{
@@ -468,77 +715,96 @@ const addTreeInstances=(group,trees,lod)=>{
   const leaves=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1.8,0),shared.leaf,data.length);
   const matrix=new THREE.Matrix4();
   data.forEach((t,i)=>{
-    matrix.compose(new THREE.Vector3(t.x,1.7*t.scale,t.z),new THREE.Quaternion(),new THREE.Vector3(t.scale,t.scale,t.scale));trunks.setMatrixAt(i,matrix);
-    matrix.compose(new THREE.Vector3(t.x,4.2*t.scale,t.z),new THREE.Quaternion(),new THREE.Vector3(t.scale,t.scale,t.scale));leaves.setMatrixAt(i,matrix);
+    const e=elevAtWorld(t.x,t.z);
+    matrix.compose(new THREE.Vector3(t.x,e+1.7*t.scale,t.z),new THREE.Quaternion(),new THREE.Vector3(t.scale,t.scale,t.scale));trunks.setMatrixAt(i,matrix);
+    matrix.compose(new THREE.Vector3(t.x,e+4.2*t.scale,t.z),new THREE.Quaternion(),new THREE.Vector3(t.scale,t.scale,t.scale));leaves.setMatrixAt(i,matrix);
   });
   trunks.castShadow=leaves.castShadow=Number($('#detail').value)>0;group.add(trunks,leaves);
 };
-const addLampInstances=(group,lamps,lod)=>{
-  if(!lamps.length||lod!==0||Number($('#detail').value)===0)return;
-  const count=Math.min(lamps.length,60);
-  const pole=new THREE.InstancedMesh(new THREE.CylinderGeometry(.08,.12,4.2,5),shared.lamp,count);
-  const glow=new THREE.InstancedMesh(new THREE.SphereGeometry(.22,6,4),shared.lampGlow,count),matrix=new THREE.Matrix4();
-  for(let i=0;i<count;i++){const p=lamps[i];matrix.makeTranslation(p.x,2.1,p.z);pole.setMatrixAt(i,matrix);matrix.makeTranslation(p.x,4.15,p.z);glow.setMatrixAt(i,matrix)}
-  group.add(pole,glow);
+
+const addChunkGround=c=>{
+  if(c.ground)return;
+  const geo=new THREE.PlaneGeometry(CHUNK+.05,CHUNK+.05,8,8);
+  geo.rotateX(-Math.PI/2);
+  const pos=geo.attributes.position;
+  for(let i=0;i<pos.count;i++){
+    const wx=c.cx*CHUNK+pos.getX(i),wz=c.cz*CHUNK+pos.getZ(i);
+    pos.setY(i,elevAtWorld(wx,wz)-.32);
+  }
+  geo.computeVertexNormals();
+  const mesh=new THREE.Mesh(geo,shared.ground);
+  mesh.position.set(c.cx*CHUNK,0,c.cz*CHUNK);
+  mesh.receiveShadow=c.desiredLod<2;
+  c.group.add(mesh);c.ground=mesh;
 };
-const renderChunk=(c,data,lod)=>{
+
+const coveringGroups=(c,lod)=>{
+  const zv=lod===2?13:14;
+  const gb=chunkGeoBounds(c);
+  const seen=new Set(),merged={buildings:[],roads:[],rails:[],waterLines:[],areas:[]};
+  for(const t of tileRange(gb,zv)){
+    const g=S.vectorTiles.get(`v:${zv}/${t.x}/${t.y}`);
+    if(!g)continue;
+    for(const kind of Object.keys(merged))for(const item of g[kind]){
+      const dk=kind+':'+item.id;
+      if(seen.has(dk))continue;seen.add(dk);
+      merged[kind].push(item);
+    }
+  }
+  return merged;
+};
+const renderChunk=(c,lod)=>{
   const bounds=chunkBounds(c),content=new THREE.Group();
   content.name=`lod-${lod}-content`;
-  const areas=[],roads=[],buildings=[],trees=[],lamps=[],cars=[];
-  for(const el of data.elements||[]){
-    const t=el.tags||{};
-    if(el.type==='node'){
-      if(lod===0&&Number.isFinite(el.lat)&&Number.isFinite(el.lon)){
-        const w=geoToWorld(el.lat,el.lon);
-        if(inBounds(w.x,w.z,bounds)){
-          if(t.natural==='tree')trees.push({x:w.x,z:w.z,scale:.8+(hash(el.id)%50)/100});
-          if(t.highway==='street_lamp')lamps.push(w);
-        }
-      }
-      continue;
-    }
-    if(t.building)buildings.push(el);
-    else if(t.highway||t.railway||t.waterway)roads.push(el);
-    else if(t.natural||t.landuse||t.leisure)areas.push(el);
-  }
+  addChunkGround(c);
+  const g=coveringGroups(c,lod);
+  const trees=[],cars=[];
   let count=0;
-  for(const el of areas)for(const q of geometries(el)){
-    const pts=cleanPoints(q.geometry,lod,true);if(pts.length<3)continue;
-    const center=centroid(pts);if(!inBounds(center.x,center.z,bounds,6))continue;
-    const style=areaStyle(q.tags);if(lod===2&&!style.water&&polygonArea(pts)<1400)continue;
+  for(const item of g.areas){
+    const w=geoToWorld(item.c.lat,item.c.lon);
+    if(!inBounds(w.x,w.z,bounds))continue;
+    const pts=cleanPoints(item.pts,lod,true);if(pts.length<3)continue;
+    const style=areaStyle(item.tags);
+    if(lod===2&&!style.water&&polygonArea(pts)<1400)continue;
     if(addArea(content,pts,style,lod))count++;
-    scatterTrees(trees,pts,bounds,q.id,style.trees,lod);
+    scatterTrees(trees,pts,bounds,item.id,style.trees,lod);
   }
-  for(const el of roads)for(const q of geometries(el)){
-    const pts=cleanPoints(q.geometry,lod,false);if(pts.length<2)continue;
-    if(q.tags.waterway){
-      for(let i=1;i<pts.length;i++){
-        const a=pts[i-1],b=pts[i],m={x:(a.x+b.x)/2,z:(a.z+b.z)/2};
-        if(inBounds(m.x,m.z,bounds,3))addSegmentBox(content,a,b,Math.max(3,parseFloat(q.tags.width)||4),shared.water,.035,.08);
-      }
-      count++;
-    }else if(q.tags.railway){
-      if(lod===2)continue;
-      for(let i=1;i<pts.length;i++){
-        const a=pts[i-1],b=pts[i],m={x:(a.x+b.x)/2,z:(a.z+b.z)/2};
-        if(inBounds(m.x,m.z,bounds,3))addSegmentBox(content,a,b,2.2,shared.rail,.075,.11);
-      }
-      count++;
-    }else if(renderRoad(content,pts,q.tags,bounds,lod,cars))count++;
+  for(const item of g.waterLines){
+    const pts=cleanPoints(item.pts,lod,false);if(pts.length<2)continue;
+    let drew=false;
+    for(let i=1;i<pts.length;i++){
+      const a=draped(pts[i-1].x,pts[i-1].z),b=draped(pts[i].x,pts[i].z);
+      const m={x:(a.x+b.x)/2,z:(a.z+b.z)/2};
+      if(inBounds(m.x,m.z,bounds,3)){addSegmentBox(content,a,b,4,shared.water,.035,.08);drew=true}
+    }
+    if(drew)count++;
+  }
+  for(const item of g.rails){
+    if(lod===2)continue;
+    const pts=cleanPoints(item.pts,lod,false);if(pts.length<2)continue;
+    let drew=false;
+    for(let i=1;i<pts.length;i++){
+      const a=draped(pts[i-1].x,pts[i-1].z),b=draped(pts[i].x,pts[i].z);
+      const m={x:(a.x+b.x)/2,z:(a.z+b.z)/2};
+      if(inBounds(m.x,m.z,bounds,3)){addSegmentBox(content,a,b,2.2,shared.rail,.075,.11);drew=true}
+    }
+    if(drew)count++;
+  }
+  for(const item of g.roads){
+    const pts=cleanPoints(item.pts,lod,false);if(pts.length<2)continue;
+    if(renderRoad(content,pts,item.tags,bounds,lod,cars))count++;
   }
   const quality=Number($('#detail').value);
   const limit=lod===0?(quality===2?300:quality===1?230:160):lod===1?230:190;
   let built=0;
-  for(const el of buildings){
+  for(const item of g.buildings){
     if(built>=limit)break;
-    for(const q of geometries(el)){
-      if(built>=limit)break;
-      const pts=cleanPoints(q.geometry,lod,true);if(pts.length<4)continue;
-      const center=centroid(pts);if(!inBounds(center.x,center.z,bounds,4))continue;
-      if(addBuilding(content,pts,q.tags,q.id,lod)){built++;count++}
-    }
+    const w=geoToWorld(item.c.lat,item.c.lon);
+    if(!inBounds(w.x,w.z,bounds))continue;
+    const pts=cleanPoints(item.pts,lod,true);if(pts.length<4)continue;
+    if(addBuilding(content,pts,item.tags,item.id,lod)){built++;count++}
   }
-  addTreeInstances(content,trees,lod);addLampInstances(content,lamps,lod);addCars(content,cars,lod);
+  addTreeInstances(content,trees,lod);addCars(content,cars,lod);
   if(c.content){S.totalFeatures-=c.featureCount||0;disposeObject(c.content)}
   c.content=content;c.group.add(content);c.lod=lod;c.featureCount=count;S.totalFeatures+=count;
   c.state='ready';c.errorLod=null;
@@ -546,116 +812,18 @@ const renderChunk=(c,data,lod)=>{
   if(c.desiredLod<c.lod)enqueue(c,c.desiredLod,true);
 };
 
-const openDB=()=>{
-  if(!('indexedDB'in window))return Promise.reject(new Error('IndexedDB unavailable'));
-  if(S.dbPromise)return S.dbPromise;
-  S.dbPromise=new Promise((resolve,reject)=>{
-    const req=indexedDB.open('geovoxel-v5',1);
-    req.onupgradeneeded=()=>req.result.createObjectStore('chunks');
-    req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
-  });
-  return S.dbPromise;
-};
-const cacheGet=async key=>{
-  try{
-    const db=await openDB();
-    return await new Promise((resolve,reject)=>{
-      const req=db.transaction('chunks').objectStore('chunks').get(key);
-      req.onsuccess=()=>{const v=req.result;resolve(v&&Date.now()-v.time<CACHE_AGE?v.data:null)};
-      req.onerror=()=>reject(req.error);
-    });
-  }catch{return null}
-};
-const cachePut=async(key,data)=>{
-  try{
-    const db=await openDB();
-    await new Promise((resolve,reject)=>{
-      const req=db.transaction('chunks','readwrite').objectStore('chunks').put({time:Date.now(),data},key);
-      req.onsuccess=()=>resolve();req.onerror=()=>reject(req.error);
-    });
-  }catch{}
-};
-const bboxFor=c=>{
-  const h=CHUNK/2+OVERLAP;
-  const sw=worldToGeo(c.cx*CHUNK-h,c.cz*CHUNK-h),ne=worldToGeo(c.cx*CHUNK+h,c.cz*CHUNK+h);
-  return{south:sw.lat,west:sw.lon,north:ne.lat,east:ne.lon};
-};
-const queryFor=(b,lod)=>{
-  const box=`${b.south},${b.west},${b.north},${b.east}`;
-  if(lod===2)return`[out:json][timeout:8];(
-    way["building"](${box});
-    way["highway"~"motorway|trunk|primary|secondary|tertiary|residential|unclassified"](${box});
-    way["natural"="water"](${box});
-    way["waterway"](${box});
-  );out tags geom qt;`;
-  if(lod===1)return`[out:json][timeout:10];(
-    way["building"](${box});
-    way["highway"](${box});
-    way["railway"](${box});
-    way["waterway"](${box});
-    way["natural"~"water|wood"](${box});
-    way["landuse"~"grass|forest|meadow|recreation_ground|village_green|cemetery|reservoir|basin|commercial|retail|industrial"](${box});
-    way["leisure"~"park|garden|pitch|playground"](${box});
-  );out tags geom qt;`;
-  return`[out:json][timeout:12];(
-    way["building"](${box});
-    relation["building"](${box});
-    way["highway"](${box});
-    way["railway"](${box});
-    way["waterway"](${box});
-    way["natural"~"water|wood"](${box});
-    way["landuse"~"grass|forest|meadow|recreation_ground|village_green|cemetery|reservoir|basin|commercial|retail|industrial"](${box});
-    way["leisure"~"park|garden|pitch|playground"](${box});
-    node["natural"="tree"](${box});
-    node["highway"="street_lamp"](${box});
-  );out tags geom qt;`;
-};
-const fetchEndpoint=async(url,query,timeout,signal,delay=0)=>{
-  if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
-  if(signal.aborted)throw new DOMException('Aborted','AbortError');
-  const local=new AbortController(),abort=()=>local.abort();
-  signal.addEventListener('abort',abort,{once:true});
-  const timer=setTimeout(()=>local.abort(),timeout);
-  try{
-    const response=await fetch(url,{
-      method:'POST',signal:local.signal,
-      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8',Accept:'application/json'},
-      body:`data=${encodeURIComponent(query)}`
-    });
-    if(!response.ok)throw new Error(`HTTP ${response.status}`);
-    const data=await response.json();
-    if(!data||!Array.isArray(data.elements))throw new Error('Invalid map response');
-    return data;
-  }finally{
-    clearTimeout(timer);signal.removeEventListener('abort',abort);
-  }
-};
-const requestMap=async(query,lod,controller)=>{
-  const timeout=lod===0?13000:lod===1?10500:8000;
-  const first=S.requestCounter++%SERVERS.length;
-  const attempts=[
-    fetchEndpoint(SERVERS[first],query,timeout,controller.signal,0),
-    fetchEndpoint(SERVERS[(first+1)%SERVERS.length],query,timeout,controller.signal,650),
-    fetchEndpoint(SERVERS[(first+2)%SERVERS.length],query,timeout,controller.signal,1700)
-  ];
-  try{return await Promise.any(attempts)}
-  catch(error){throw(error&&error.errors&&error.errors[0])||error}
-};
 const fetchChunk=async(c,lod,generation)=>{
-  const b=bboxFor(c),key=`v5:${lod}:${b.south.toFixed(5)}:${b.west.toFixed(5)}:${b.north.toFixed(5)}:${b.east.toFixed(5)}`;
-  const cached=await cacheGet(key);if(cached)return{data:cached,cached:true};
-  const controller=new AbortController();c.controller=controller;
-  const data=await requestMap(queryFor(b,lod),lod,controller);
-  controller.abort();
+  S.lastNet=false;
+  const gb=chunkGeoBounds(c),zv=lod===2?13:14;
+  const jobs=[];
+  for(const t of tileRange(gb,zv))jobs.push(getVectorTile(zv,t.x,t.y));
+  for(const t of tileRange(gb,TERRAIN_Z))jobs.push(getTerrainTile(t.x,t.y));
+  await Promise.all(jobs);
   if(generation!==S.generation)throw new Error('stale generation');
-  cachePut(key,data);return{data,cached:false};
+  if(S.baseElev==null)S.baseElev=elevationAbs(S.origin.lat,S.origin.lon);
+  return{cached:!S.lastNet};
 };
 
-const setChunkVisualLod=(c,lod)=>{c.desiredLod=lod};
-const addChunkBase=c=>{
-  const ground=new THREE.Mesh(new THREE.BoxGeometry(CHUNK+.02,1,CHUNK+.02),shared.ground);
-  ground.position.set(c.cx*CHUNK,-.56,c.cz*CHUNK);ground.receiveShadow=c.desiredLod<2;c.group.add(ground);c.ground=ground;
-};
 const queuePriority=(c,lod,upgrade)=>{
   const x=controls.target.x/CHUNK,z=controls.target.z/CHUNK,d=Math.hypot(c.cx-x,c.cz-z);
   if(lod===2&&!upgrade)return d*8;
@@ -678,38 +846,38 @@ const pump=()=>{
     if(c.loadingLod!=null){c.deferredLod=c.deferredLod==null?lod:Math.min(c.deferredLod,lod);continue}
     S.active++;c.loadingLod=lod;c.state='loading';
     const generation=S.generation,isUpgrade=c.lod!=null;
-    statusEl.textContent=isUpgrade?`Refining ${c.key} to ${LOD_LABEL[lod]} detail…`:`Loading ${LOD_LABEL[lod]} map chunk ${c.key}…`;
+    statusEl.textContent=isUpgrade?`Refining ${c.key} to ${LOD_LABEL[lod]} detail…`:`Loading ${LOD_LABEL[lod]} tiles for ${c.key}…`;
     fetchChunk(c,lod,generation).then(result=>{
       if(generation!==S.generation||!S.chunks.has(c.key))return;
-      renderChunk(c,result.data,lod);$('#source').textContent=result.cached?'cache':'OSM';
-      statusEl.textContent=S.queue.length?'The map is usable now; detail is filling in toward the center.':'Focal streaming ready. Drag to look around; travel with right-drag or two fingers.';
+      renderChunk(c,lod);$('#source').textContent=result.cached?'cache':'OFM';
+      statusEl.textContent=S.queue.length?'The map is usable now; detail is filling in toward the center.':'Vector-terrain streaming ready. Drag to look around; travel with right-drag or two fingers.';
     }).catch(error=>{
       if(error&&(error.name==='AbortError'||error.message==='stale generation'))return;
       console.warn('Chunk load failed',c.key,lod,error);
       if(generation===S.generation&&S.chunks.has(c.key)){
         c.errorLod=lod;c.state=c.lod==null?'error':'ready';
-        statusEl.textContent='One map tile timed out; the loader continued. Tap Retry to request failed tiles again.';
+        statusEl.textContent='A map tile failed to load. Tap Retry to request failed tiles again.';
       }
     }).finally(()=>{
-      c.controller=null;c.loadingLod=null;S.active=Math.max(0,S.active-1);
+      c.loadingLod=null;S.active=Math.max(0,S.active-1);
       if(S.chunks.has(c.key)&&c.errorLod==null){
         if(c.deferredLod!=null){const next=c.deferredLod;c.deferredLod=null;enqueue(c,next,c.lod!=null)}
         else if(c.desiredLod<(c.lod==null?3:c.lod))enqueue(c,c.lod==null?2:c.desiredLod,c.lod!=null);
       }
-      updateStats();setTimeout(pump,90);
+      updateStats();setTimeout(pump,60);
     });
   }
 };
 const makeChunk=(cx,cz,desiredLod)=>{
   const key=chunkKey(cx,cz);let c=S.chunks.get(key);
   if(c){
-    setChunkVisualLod(c,desiredLod);
+    c.desiredLod=desiredLod;
     if(c.lod==null)enqueue(c,2,false);else if(desiredLod<c.lod)enqueue(c,desiredLod,true);
     return c;
   }
   c={key,cx,cz,desiredLod,lod:null,state:'new',group:new THREE.Group(),content:null,ground:null,
     queuedLods:new Set(),loadingLod:null,deferredLod:null,controller:null,featureCount:0,errorLod:null};
-  c.group.name=`chunk-${key}`;world.add(c.group);S.chunks.set(key,c);addChunkBase(c);enqueue(c,2,false);return c;
+  c.group.name=`chunk-${key}`;world.add(c.group);S.chunks.set(key,c);enqueue(c,2,false);return c;
 };
 const desiredChunks=()=>{
   const radius=Number($('#radius').value)||1,cx=Math.round(controls.target.x/CHUNK),cz=Math.round(controls.target.z/CHUNK);
@@ -719,7 +887,7 @@ const desiredChunks=()=>{
   for(const item of candidates)makeChunk(cx+item.dx,cz+item.dz,item.lod);
   const unload=radius+2;
   for(const[key,c]of[...S.chunks])if(Math.max(Math.abs(c.cx-cx),Math.abs(c.cz-cz))>unload){
-    if(c.controller)c.controller.abort();S.totalFeatures-=c.featureCount||0;disposeObject(c.group);S.chunks.delete(key);
+    S.totalFeatures-=c.featureCount||0;disposeObject(c.group);S.chunks.delete(key);
   }
   S.queue=S.queue.filter(item=>S.chunks.has(item.c.key));sortQueue();pump();return{cx,cz};
 };
@@ -758,7 +926,6 @@ const applyTime=hours=>{
   sun.castShadow=sun.intensity>.15;
   const night=1-Math.min(1,sun.intensity/.6);
   windowMat.opacity=.4+night*.5;
-  shared.lampGlow.color.set(new THREE.Color(0x9a8a5a).lerp(new THREE.Color(0xffe9a8),night));
   shared.marking.color.set(new THREE.Color(0xe7dfbf).lerp(new THREE.Color(0x8d8672),night*.5));
   const hh=Math.floor(hours),mm=Math.round((hours-hh)*60);
   $('#timeread').textContent=`${String(hh%24).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
@@ -786,9 +953,9 @@ const resetView=()=>{
 const startLocation=()=>{
   const lat=parseFloat($('#lat').value),lon=parseFloat($('#lon').value);
   if(!Number.isFinite(lat)||!Number.isFinite(lon)){statusEl.textContent='Enter valid coordinates.';return}
-  S.origin={lat,lon};clearWorld();controls.target.set(0,8,0);S.lastCenterKey='';resetView();
+  S.origin={lat,lon};S.baseElev=null;clearWorld();controls.target.set(0,8,0);S.lastCenterKey='';resetView();
   $('#osm').href=`https://www.openstreetmap.org/#map=18/${lat}/${lon}`;
-  statusEl.textContent='Loading a coarse real-map silhouette first; detail will refine inward.';desiredChunks();updateURL();
+  statusEl.textContent='Blocking in the horizon first; detail will refine toward the center.';desiredChunks();updateURL();
 };
 const retryErrors=()=>{
   let count=0;
@@ -798,7 +965,6 @@ const retryErrors=()=>{
 const rebuildVisible=()=>{
   S.generation++;S.queue=[];S.active=0;
   for(const c of S.chunks.values()){
-    if(c.controller)c.controller.abort();
     if(c.content){S.totalFeatures-=c.featureCount||0;disposeObject(c.content);c.content=null;c.featureCount=0}
     c.lod=null;c.state='new';c.errorLod=null;c.loadingLod=null;c.deferredLod=null;c.queuedLods.clear();
     enqueue(c,2,false);
@@ -880,7 +1046,11 @@ if(params.has('t')){
   if(Number.isFinite(t)&&t>=0&&t<=24)$('#time').value=t;
 }
 applyTime(parseFloat($('#time').value));
-resetView();loadingEl.hidden=true;startLocation();
+resetView();loadingEl.hidden=true;
+ensureTileJSON().catch(()=>{
+  statusEl.textContent='Could not reach the OpenFreeMap tile service. Check the connection and tap Retry.';
+});
+startLocation();
 })();
 </script>
 </body>
