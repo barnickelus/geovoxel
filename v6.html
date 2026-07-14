@@ -14,7 +14,8 @@ h1{font-size:17px;margin:0;letter-spacing:.13em}h1 small{font-size:9px;letter-sp
 input,select,button,a.action{height:38px;border:0;border-radius:10px;font:inherit}
 input,select{width:100%;padding:0 9px;color:#142029;background:#eff6f8}select{flex:1}
 button,a.action{display:inline-flex;align-items:center;justify-content:center;padding:0 12px;cursor:pointer;font-weight:800;color:#14200d;background:#bafd67;text-decoration:none;white-space:nowrap}
-button.alt,a.action.alt{color:#142029;background:#dae9ee}button:disabled{opacity:.5}
+button.alt,a.action.alt{color:#142029;background:#dae9ee}button.active{background:#78d8ff;color:#082033}button:disabled{opacity:.5}
+.flyui{position:fixed;left:50%;bottom:max(14px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:30;display:none;gap:8px;align-items:center}.flyui.on{display:flex}.flyui button{width:46px}.spd{min-width:70px;text-align:center;font-size:12px;font-weight:800;color:#eef8fb;background:#07141dcc;padding:10px;border-radius:10px}
 .coords{display:grid;grid-template-columns:1fr 1fr 42px;gap:7px}.options{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .field{display:flex;flex-direction:column;gap:3px}.field label{font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:#8fa8b4}
 .timerow{display:grid;grid-template-columns:1fr 56px;gap:7px;align-items:center;margin-top:8px}
@@ -38,14 +39,14 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 <canvas id="view"></canvas>
 <section class="panel">
   <h1>GEOVOXEL <small>V6</small></h1>
-  <p class="sub">Vector-tile streaming on real terrain: buildings, roads and water arrive as compact map tiles over elevation from global heightmaps. Detail still fills center-first through the bands.</p>
+  <p class="sub">Vector-tile streaming on real terrain: buildings, roads and water arrive as compact map tiles over elevation from global heightmaps. Detail still fills center-first through the bands — or press Fly and explore as a pigeon while the sharp band follows you.</p>
   <div class="row"><input id="search" placeholder="Search any place — city, street, landmark…" autocomplete="off"><button id="find">Find</button></div>
   <div class="row"><select id="preset"><option value="45.5231,-122.6765">Portland, Oregon</option><option value="40.7411,-73.9897">Manhattan, New York</option><option value="34.0195,-118.4912">Santa Monica, California</option><option value="41.9028,12.4964">Rome, Italy</option><option value="35.6812,139.7671">Tokyo, Japan</option><option value="46.2044,6.1432">Geneva, Switzerland</option></select><button id="go">Start</button></div>
   <div class="coords row"><div class="field"><label>Latitude</label><input id="lat" value="45.5231" inputmode="decimal"></div><div class="field"><label>Longitude</label><input id="lon" value="-122.6765" inputmode="decimal"></div><button id="locate" class="alt" aria-label="Use my location">◎</button></div>
   <div class="options row"><div class="field"><label>Streaming</label><select id="radius"><option value="1">3 × 3 bands</option><option value="2" selected>5 × 5 bands</option><option value="3">7 × 7 bands</option></select></div><div class="field"><label>Near detail</label><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></div><div class="field"><label>Base voxel</label><select id="voxel"><option value="0">Exact near</option><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></div></div>
   <div class="timerow"><input id="time" type="range" min="0" max="24" step="0.25" value="10.5"><div id="timeread" class="timeread">10:30</div></div>
   <div class="lodlegend"><span class="near">Center · full</span><span class="mid">Ring · simplified</span><span class="far">Outer · blocked in</span></div>
-  <div class="row secondary"><button id="reset" class="alt">Reset view</button><button id="retry" class="alt">Retry</button><button id="share" class="alt">Share</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
+  <div class="row secondary"><button id="fly" class="alt">🕊 Fly</button><button id="reset" class="alt">Reset view</button><button id="retry" class="alt">Retry</button><button id="share" class="alt">Share</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
   <div id="status" class="status">Loading 3D engine…</div>
   <div class="stats"><div class="stat"><strong id="loaded">0</strong>chunks</div><div class="stat"><strong id="queued">0</strong>queued</div><div class="stat"><strong id="features">0</strong>features</div><div class="stat"><strong id="source">—</strong>source</div></div>
   <div id="lodread" class="coordread">LOD: 0 near · 0 middle · 0 far</div>
@@ -54,6 +55,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;bac
 </section>
 <div class="compass"><div id="needle" class="needle"></div></div>
 <div id="help" class="help">Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night</div>
+<div id="flyui" class="flyui"><button id="spdDown" class="alt" aria-label="Slower">−</button><div id="spd" class="spd">34 m/s</div><button id="spdUp" class="alt" aria-label="Faster">+</button></div>
 <div id="toast" class="toast"></div>
 <div id="loading" class="loading"><div><h2>GEOVOXEL V6</h2><p>Loading the terrain renderer…</p></div></div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -114,18 +116,33 @@ const shared={
 };
 const buildingPalette=[0xd8c59f,0xc9ad83,0xbcc0b8,0xc58e77,0xddd3bd,0xa5aca4,0xc7bba7];
 
-const windowCanvas=document.createElement('canvas');
-windowCanvas.width=128;windowCanvas.height=64;
-const wc=windowCanvas.getContext('2d');
-wc.fillStyle='#28383e';wc.fillRect(0,0,128,64);
-for(let row=5;row<64;row+=16)for(let col=5;col<128;col+=16){
-  wc.fillStyle=((row+col)%32)?'#a6c2c7':'#e0cb83';
-  wc.globalAlpha=.68;wc.fillRect(col,row,9,8);
+const makeFacadeCanvas=glow=>{
+  const c=document.createElement('canvas');c.width=64;c.height=32;
+  const ctx=c.getContext('2d');
+  ctx.fillStyle=glow?'#000000':'#ffffff';ctx.fillRect(0,0,64,32);
+  for(let wx=5;wx<64;wx+=16){
+    const lit=((wx-5)/16)%3===1;
+    ctx.fillStyle=glow?(lit?'#ffd98a':'#1a1206'):(lit?'#cfc4a6':'#75868c');
+    ctx.fillRect(wx,7,8,15);
+  }
+  return c;
+};
+const facadeMap=new THREE.CanvasTexture(makeFacadeCanvas(false));
+const facadeGlow=new THREE.CanvasTexture(makeFacadeCanvas(true));
+for(const t of[facadeMap,facadeGlow]){
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  t.repeat.set(1/12,1/3.1);
+  t.anisotropy=4;t.magFilter=THREE.NearestFilter;
 }
-wc.globalAlpha=1;
-const windowTexture=new THREE.CanvasTexture(windowCanvas);
-windowTexture.magFilter=THREE.NearestFilter;windowTexture.minFilter=THREE.LinearFilter;
-const windowMat=new THREE.MeshBasicMaterial({map:windowTexture,transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide});
+const facadeMats={},facadeList=[];
+const facadeMat=color=>{
+  const key=String(color);
+  if(!facadeMats[key]){
+    const m=new THREE.MeshStandardMaterial({color,roughness:.85,flatShading:true,map:facadeMap,emissive:0xffc476,emissiveMap:facadeGlow,emissiveIntensity:0});
+    facadeMats[key]=m;facadeList.push(m);
+  }
+  return facadeMats[key];
+};
 
 const S={
   origin:{lat:45.5231,lon:-122.6765},baseElev:null,tileTemplate:null,tileJsonPromise:null,
@@ -581,17 +598,6 @@ const buildingColor=(t,id,lod)=>{
   return color;
 };
 const roofColor=id=>[0x77786f,0x806b5b,0x666e70,0x8b7562][hash(id+'r')%4];
-const addWindowWalls=(group,pts,base,height)=>{
-  if(Number($('#detail').value)<2||height<8)return;
-  for(let i=0;i<Math.min(pts.length-1,8);i++){
-    const a=pts[i],b=pts[i+1],dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);
-    if(len<7)continue;
-    const panelH=Math.min(height*.7,24);
-    const mesh=new THREE.Mesh(new THREE.PlaneGeometry(len*.86,panelH),windowMat);
-    mesh.position.set((a.x+b.x)/2+(-dz/len)*.06,base+height*.5,(a.z+b.z)/2+(dx/len)*.06);
-    mesh.rotation.y=Math.atan2(-dz,dx);group.add(mesh);
-  }
-};
 const addBuilding=(group,pts,tags,id,lod)=>{
   if(pts.length<4)return false;
   const b=boundsOf(pts);if(b.w<1.5||b.d<1.5)return false;
@@ -614,7 +620,7 @@ const addBuilding=(group,pts,tags,id,lod)=>{
     geo.rotateX(-Math.PI/2);
     geo.translate(0,base-skirt,0);
     geo.computeVertexNormals();
-    const mesh=new THREE.Mesh(geo,buildingMat(color));
+    const mesh=new THREE.Mesh(geo,lod===0?[buildingMat(color),facadeMat(color)]:buildingMat(color));
     mesh.receiveShadow=true;mesh.castShadow=lod===0;group.add(mesh);
     const top=base+height;
     if(lod===0){
@@ -625,9 +631,8 @@ const addBuilding=(group,pts,tags,id,lod)=>{
       try{
         const rg=new THREE.ShapeGeometry(shape);rg.rotateX(-Math.PI/2);
         const rm=new THREE.Mesh(rg,roofMat(roofColor(id)));
-        rm.position.y=top+.025;group.add(rm);
+        rm.position.y=top+.12;group.add(rm);
       }catch{}
-      addWindowWalls(group,pts,base,height);
     }else{
       const cap=new THREE.Mesh(new THREE.BoxGeometry(Math.max(2,b.w*.88),.35,Math.max(2,b.d*.88)),roofMat(roofColor(id)));
       cap.position.set(b.x,top+.18,b.z);group.add(cap);
@@ -722,9 +727,10 @@ const addTreeInstances=(group,trees,lod)=>{
   trunks.castShadow=leaves.castShadow=Number($('#detail').value)>0;group.add(trunks,leaves);
 };
 
-const addChunkGround=c=>{
-  if(c.ground)return;
-  const geo=new THREE.PlaneGeometry(CHUNK+.05,CHUNK+.05,8,8);
+const addChunkGround=(c,res=8)=>{
+  if(c.ground&&(c.groundRes||0)>=res)return;
+  if(c.ground){c.group.remove(c.ground);c.ground.geometry.dispose();c.ground=null}
+  const geo=new THREE.PlaneGeometry(CHUNK+.05,CHUNK+.05,res,res);
   geo.rotateX(-Math.PI/2);
   const pos=geo.attributes.position;
   for(let i=0;i<pos.count;i++){
@@ -735,7 +741,7 @@ const addChunkGround=c=>{
   const mesh=new THREE.Mesh(geo,shared.ground);
   mesh.position.set(c.cx*CHUNK,0,c.cz*CHUNK);
   mesh.receiveShadow=c.desiredLod<2;
-  c.group.add(mesh);c.ground=mesh;
+  c.group.add(mesh);c.ground=mesh;c.groundRes=res;
 };
 
 const coveringGroups=(c,lod)=>{
@@ -756,7 +762,7 @@ const coveringGroups=(c,lod)=>{
 const renderChunk=(c,lod)=>{
   const bounds=chunkBounds(c),content=new THREE.Group();
   content.name=`lod-${lod}-content`;
-  addChunkGround(c);
+  addChunkGround(c,lod===0?16:8);
   const g=coveringGroups(c,lod);
   const trees=[],cars=[];
   let count=0;
@@ -899,6 +905,103 @@ const updateStats=()=>{
   $('#lodread').textContent=`LOD: ${lod[0]} near · ${lod[1]} middle · ${lod[2]} far`;
 };
 
+
+const pigeon=(()=>{
+  const g=new THREE.Group();
+  const grey=new THREE.MeshStandardMaterial({color:0x8d939c,roughness:.8});
+  const dark=new THREE.MeshStandardMaterial({color:0x565b63,roughness:.8});
+  const neck=new THREE.MeshStandardMaterial({color:0x5d7a63,roughness:.55,metalness:.3});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.7,.95,.95),grey);body.castShadow=true;g.add(body);
+  const chest=new THREE.Mesh(new THREE.BoxGeometry(.6,.72,.8),neck);chest.position.set(.72,.1,0);g.add(chest);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.55,.55,.55),grey);head.position.set(1.12,.55,0);g.add(head);
+  const beak=new THREE.Mesh(new THREE.ConeGeometry(.13,.45,5),new THREE.MeshStandardMaterial({color:0xd88a3f,roughness:.7}));
+  beak.rotation.z=-Math.PI/2;beak.position.set(1.52,.5,0);g.add(beak);
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(.95,.1,.55),dark);tail.position.set(-1.05,.2,0);tail.rotation.z=.28;g.add(tail);
+  const wingL=new THREE.BoxGeometry(.95,.07,1.5);wingL.translate(0,0,.8);
+  const wingR=new THREE.BoxGeometry(.95,.07,1.5);wingR.translate(0,0,-.8);
+  const wl=new THREE.Mesh(wingL,dark);wl.position.set(.1,.32,.3);g.add(wl);
+  const wr=new THREE.Mesh(wingR,dark);wr.position.set(.1,.32,-.3);g.add(wr);
+  g.scale.setScalar(1.8);g.visible=false;g.rotation.order='YZX';scene.add(g);
+  return{group:g,wl,wr};
+})();
+const FLY={on:false,heading:0,pitch:0,speed:34,turn:0,rise:0,pos:new THREE.Vector3()};
+const updateFlight=dtMs=>{
+  if(!FLY.on)return;
+  const dt=Math.min(.08,Math.max(.001,dtMs/1000));
+  FLY.heading+=FLY.turn*1.7*dt;
+  FLY.pitch=Math.max(-.95,Math.min(.95,FLY.pitch+FLY.rise*1.5*dt));
+  if(!FLY.rise)FLY.pitch*=Math.pow(.25,dt);
+  const cosP=Math.cos(FLY.pitch);
+  FLY.pos.x+=Math.cos(FLY.heading)*cosP*FLY.speed*dt;
+  FLY.pos.z+=Math.sin(FLY.heading)*cosP*FLY.speed*dt;
+  FLY.pos.y+=Math.sin(FLY.pitch)*FLY.speed*dt;
+  const floor=elevAtWorld(FLY.pos.x,FLY.pos.z)+2.5;
+  if(FLY.pos.y<floor){FLY.pos.y=floor;if(FLY.pitch<0)FLY.pitch=0}
+  if(FLY.pos.y>420)FLY.pos.y=420;
+  pigeon.group.position.copy(FLY.pos);
+  pigeon.group.rotation.y=-FLY.heading;
+  pigeon.group.rotation.z=FLY.pitch*.7;
+  pigeon.group.rotation.x=THREE.MathUtils.lerp(pigeon.group.rotation.x,-FLY.turn*.5,Math.min(1,dt*6));
+  const flap=Math.sin(performance.now()/1000*(7+FLY.speed*.06))*.55;
+  pigeon.wl.rotation.x=-flap;pigeon.wr.rotation.x=flap;
+  controls.target.set(FLY.pos.x,Math.max(2,FLY.pos.y),FLY.pos.z);
+  const back=16+FLY.speed*.14;
+  const desired=new THREE.Vector3(
+    FLY.pos.x-Math.cos(FLY.heading)*back,
+    FLY.pos.y+6.5,
+    FLY.pos.z-Math.sin(FLY.heading)*back);
+  camera.position.lerp(desired,1-Math.pow(.002,dt));
+  camera.lookAt(FLY.pos.x,FLY.pos.y+1.5,FLY.pos.z);
+};
+const setFly=on=>{
+  FLY.on=on;pigeon.group.visible=on;controls.enabled=!on;
+  $('#fly').textContent=on?'Land':'🕊 Fly';$('#fly').classList.toggle('active',on);
+  $('#flyui').classList.toggle('on',on);
+  $('#help').textContent=on?'Steer: drag, or ← → turn · ↑ ↓ climb and dive · + − speed · Land to return':'Drag to look around · right-drag / two-finger drag to travel · arrows pan · scrub the slider for dawn to night';
+  if(on){
+    const tx=controls.target.x,tz=controls.target.z;
+    FLY.pos.set(tx,Math.max(elevAtWorld(tx,tz)+38,controls.target.y+30),tz);
+    const d=new THREE.Vector3();camera.getWorldDirection(d);
+    FLY.heading=Math.atan2(d.z,d.x);FLY.pitch=0;FLY.turn=0;FLY.rise=0;
+    $('#spd').textContent=Math.round(FLY.speed)+' m/s';
+    toast('You are the pigeon — the sharp band follows wherever you fly.');
+  }else{
+    controls.target.set(FLY.pos.x,8,FLY.pos.z);
+    camera.position.set(FLY.pos.x+190,165,FLY.pos.z+220);controls.update();
+  }
+};
+const setSpeed=v=>{FLY.speed=Math.max(10,Math.min(90,v));$('#spd').textContent=Math.round(FLY.speed)+' m/s'};
+const flyKeys={};
+const updFlyInput=()=>{
+  FLY.turn=(flyKeys.arrowright||flyKeys.d?1:0)-(flyKeys.arrowleft||flyKeys.a?1:0);
+  FLY.rise=(flyKeys.arrowup||flyKeys.w?1:0)-(flyKeys.arrowdown||flyKeys.s?1:0);
+};
+addEventListener('keydown',e=>{
+  if(!FLY.on||e.target.tagName==='INPUT')return;
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();
+  flyKeys[e.key.toLowerCase()]=true;
+  if(e.key==='+'||e.key==='=')setSpeed(FLY.speed+8);
+  if(e.key==='-'||e.key==='_')setSpeed(FLY.speed-8);
+  updFlyInput();
+});
+addEventListener('keyup',e=>{if(!FLY.on)return;flyKeys[e.key.toLowerCase()]=false;updFlyInput()});
+let steer=null;
+const flyCanvas=renderer.domElement;
+flyCanvas.addEventListener('pointerdown',e=>{
+  if(!FLY.on)return;
+  steer={id:e.pointerId,x:e.clientX,y:e.clientY};
+  flyCanvas.setPointerCapture(e.pointerId);
+});
+flyCanvas.addEventListener('pointermove',e=>{
+  if(!FLY.on||!steer||e.pointerId!==steer.id)return;
+  FLY.turn=Math.max(-1,Math.min(1,(e.clientX-steer.x)/110));
+  FLY.rise=Math.max(-1,Math.min(1,(steer.y-e.clientY)/110));
+});
+const endSteer=e=>{if(steer&&e.pointerId===steer.id){steer=null;if(FLY.on){FLY.turn=0;FLY.rise=0}}};
+flyCanvas.addEventListener('pointerup',endSteer);
+flyCanvas.addEventListener('pointercancel',endSteer);
+window.GV6={FLY,S};
+
 const TIME_KEYS=[
   {h:0,sky:0x0a1526,hemi:.30,sunI:0,sunC:0x8fb4ff},
   {h:4.8,sky:0x13223a,hemi:.38,sunI:.05,sunC:0xffb37c},
@@ -925,7 +1028,7 @@ const applyTime=hours=>{
   sun.position.set(Math.cos(az)*420*(1-el*.35),420*el,Math.sin(az)*420*(1-el*.35));
   sun.castShadow=sun.intensity>.15;
   const night=1-Math.min(1,sun.intensity/.6);
-  windowMat.opacity=.4+night*.5;
+  for(const m of facadeList)m.emissiveIntensity=night*1.05;
   shared.marking.color.set(new THREE.Color(0xe7dfbf).lerp(new THREE.Color(0x8d8672),night*.5));
   const hh=Math.floor(hours),mm=Math.round((hours-hh)*60);
   $('#timeread').textContent=`${String(hh%24).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
@@ -1020,6 +1123,9 @@ $('#locate').onclick=()=>{
 };
 $('#reset').onclick=resetView;
 $('#retry').onclick=retryErrors;
+$('#fly').onclick=()=>setFly(!FLY.on);
+$('#spdUp').onclick=()=>setSpeed(FLY.speed+8);
+$('#spdDown').onclick=()=>setSpeed(FLY.speed-8);
 $('#share').onclick=async()=>{
   updateURL();
   try{await navigator.clipboard.writeText(location.href);toast('Link copied — it restores this exact spot and time of day')}
@@ -1033,7 +1139,9 @@ addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);
 });
 renderer.setAnimationLoop(time=>{
-  controls.update();stream(time);updateCompass();renderer.render(scene,camera);
+  const dt=time-(S.lastFrame||time);S.lastFrame=time;
+  if(!FLY.on)controls.update();
+  updateFlight(dt);stream(time);updateCompass();renderer.render(scene,camera);
 });
 
 const params=new URLSearchParams(location.search);
