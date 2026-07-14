@@ -4,45 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#07141d">
-<title>GeoVoxel v7.2 — Voxel Earth</title>
-<link rel="stylesheet" href="styles.css?v=72">
+<title>GeoVoxel — Stable Engine</title>
+<style>html,body{height:100%;margin:0;background:#08131c;color:#eef8fb;font-family:system-ui,-apple-system,sans-serif;display:grid;place-items:center;text-align:center}a{color:#bafd67}.box{padding:24px}</style>
+<script>
+(function(){
+  var target='../v6.html'+location.search+location.hash;
+  location.replace(target);
+})();
+</script>
 </head>
-<body>
-<canvas id="view"></canvas>
-<section class="panel">
-  <h1>GEOVOXEL <small>V7.2</small></h1>
-  <p class="sub">A real-world voxel engine: vector-tile cities over terraced elevation, streamed in adaptive detail rings.</p>
-  <div class="row"><input id="search" placeholder="Search any place, street, or landmark…" autocomplete="off"><button id="find">Find</button></div>
-  <div class="row"><select id="preset"><option value="45.5231,-122.6765">Portland, Oregon</option><option value="40.7411,-73.9897">Manhattan, New York</option><option value="34.0195,-118.4912">Santa Monica, California</option><option value="41.9028,12.4964">Rome, Italy</option><option value="35.6812,139.7671">Tokyo, Japan</option><option value="46.2044,6.1432">Geneva, Switzerland</option></select><button id="go">Start</button></div>
-  <div class="coords row"><label><span>Latitude</span><input id="lat" value="45.5231" inputmode="decimal"></label><label><span>Longitude</span><input id="lon" value="-122.6765" inputmode="decimal"></label><button id="locate" class="alt" aria-label="Use my location">◎</button></div>
-  <div class="options row">
-    <label><span>Streaming</span><select id="radius"><option value="1" selected>3 × 3</option><option value="2">5 × 5</option><option value="3">7 × 7</option></select></label>
-    <label><span>Near detail</span><select id="detail"><option value="0">Fast</option><option value="1" selected>Balanced</option><option value="2">High</option></select></label>
-    <label><span>Voxel scale</span><select id="voxel"><option value="1">1 m</option><option value="2" selected>2 m</option><option value="4">4 m</option></select></label>
-  </div>
-  <div class="timerow"><input id="time" type="range" min="0" max="24" step="0.25" value="10.5"><output id="timeread">10:30</output></div>
-  <div class="lodlegend"><span class="near">Near · terraced + detail</span><span class="mid">Middle · simplified</span><span class="far">Far · instanced masses</span></div>
-  <div class="row controls"><button id="fly" class="alt">🕊 Fly</button><button id="reset" class="alt">Reset</button><button id="retry" class="alt">Retry</button><button id="share" class="alt">Share</button><a id="osm" class="action alt" target="_blank" rel="noopener">OSM</a></div>
-  <div id="status" class="status">Loading modules…</div>
-  <div class="stats"><div><strong id="loaded">0</strong>chunks</div><div><strong id="queued">0</strong>queued</div><div><strong id="features">0</strong>features</div><div><strong id="source">—</strong>source</div></div>
-  <div id="lodread" class="readout">LOD: 0 near · 0 middle · 0 far</div>
-  <div id="coords" class="readout"></div>
-  <div class="credit"><a href="../v6.html">← v6</a> · © OpenStreetMap contributors / OpenFreeMap · terrain Mapzen/AWS</div>
-</section>
-<div class="compass"><div id="needle"></div></div>
-<div id="help" class="help">Drag to orbit · two-finger drag to travel · scroll/pinch to zoom</div>
-<div id="flyui" class="flyui"><button id="spdDown" class="alt">−</button><div id="spd">34 m/s</div><button id="spdUp" class="alt">+</button><button id="pov" class="alt">POV</button></div>
-<div id="toast" class="toast"></div>
-<div id="loading" class="loading"><div><h2>GEOVOXEL V7.2</h2><p>Loading the repaired modular engine…</p></div></div>
-<script src="boot.js?v=72"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="core.js?v=72" onload="GVBoot.loaded('core')" onerror="GVBoot.failed('core')"></script>
-<script src="mvt.js?v=72" onload="GVBoot.loaded('mvt')" onerror="GVBoot.failed('mvt')"></script>
-<script src="data.js?v=72" onload="GVBoot.loaded('data')" onerror="GVBoot.failed('data')"></script>
-<script src="render.js?v=72" onload="GVBoot.loaded('render')" onerror="GVBoot.failed('render')"></script>
-<script src="stream.js?v=72" onload="GVBoot.loaded('stream')" onerror="GVBoot.failed('stream')"></script>
-<script src="flight.js?v=72" onload="GVBoot.loaded('flight')" onerror="GVBoot.failed('flight')"></script>
-<script src="ui.js?v=72" onload="GVBoot.loaded('ui')" onerror="GVBoot.failed('ui')"></script>
-</body>
+<body><div class="box"><h1>Opening stable GeoVoxel…</h1><p><a href="../v6.html">Tap here if the redirect does not start.</a></p><p><a href="experimental.html">Open the experimental modular build</a></p></div></body>
 </html>
